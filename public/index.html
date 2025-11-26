@@ -639,6 +639,7 @@ html, body {
 .header-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
 }
 
 .header-btn {
@@ -652,7 +653,11 @@ html, body {
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    white-space: nowrap;
+    height: 36px;
+    flex-shrink: 0;
 }
 
 .header-btn:hover {
@@ -753,7 +758,7 @@ html, body {
 .chat-input-wrapper {
     display: flex;
     gap: 10px;
-    align-items: flex-end;
+    align-items: center;
 }
 
 .chat-input-container {
@@ -766,6 +771,7 @@ html, body {
     border: 1px solid var(--border);
     border-radius: 12px;
     transition: all 0.3s ease;
+    min-height: 44px;
 }
 
 .chat-input-container:focus-within {
@@ -782,6 +788,8 @@ html, body {
     font-size: 0.9rem;
     resize: none;
     max-height: 120px;
+    line-height: 1.4;
+    align-self: center;
 }
 
 .chat-input::placeholder {
@@ -796,6 +804,8 @@ html, body {
 .input-action-btn {
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     background: none;
     border: none;
     color: var(--text-muted);
@@ -805,6 +815,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .input-action-btn:hover {
@@ -815,6 +826,8 @@ html, body {
 .send-btn {
     width: 44px;
     height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     background: var(--accent);
     border: none;
     border-radius: 12px;
@@ -825,6 +838,7 @@ html, body {
     align-items: center;
     justify-content: center;
     font-size: 1rem;
+    flex-shrink: 0;
 }
 
 .send-btn:hover {
@@ -1175,11 +1189,13 @@ html, body {
     
     .header-actions {
         gap: 8px;
+        align-items: center;
     }
     
     .header-btn {
         padding: 8px 12px;
         font-size: 0.8rem;
+        height: 36px;
     }
     
     .content-body {
@@ -1338,7 +1354,9 @@ html, body {
     .header-btn {
         padding: 10px 14px;
         min-height: 44px;
+        height: 44px;
         font-size: 0.75rem;
+        align-items: center;
     }
     
     .message {
