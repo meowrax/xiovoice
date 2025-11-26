@@ -32,6 +32,15 @@
 *:focus { outline: none; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+button, a, input, textarea, select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(79, 255, 166, 0.2);
+}
+
+button:active, .btn:active {
+    transform: scale(0.98);
+}
+
 html, body {
     height: 100%; width: 100%;
     overflow: hidden;
@@ -40,6 +49,8 @@ html, body {
     font-family: 'Outfit', sans-serif;
     -webkit-overflow-scrolling: touch;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    touch-action: pan-y pinch-zoom;
+    -webkit-touch-callout: none;
 }
 
 ::-webkit-scrollbar { width: 6px; }
@@ -50,7 +61,7 @@ html, body {
 .noise-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--noise-bg);
-    opacity: 0.03; pointer-events: none; z-index: 1;
+    opacity: 0.03; pointer-events: none; z-index: 9999;
 }
 
 #loading-screen {
@@ -59,7 +70,6 @@ html, body {
     align-items: center; justify-content: center;
     background: radial-gradient(ellipse at 50% 30%, #111 0%, #000 100%);
     transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: auto;
 }
 
 .loading-grid {
@@ -159,7 +169,8 @@ html, body {
     display: none; flex-direction: column; align-items: center; justify-content: center;
     background: var(--bg-primary);
     transition: opacity 0.5s ease, transform 0.5s ease;
-    pointer-events: auto;
+    z-index: 100;
+    touch-action: manipulation;
 }
 
 .home-card, .nickname-card {
@@ -173,6 +184,8 @@ html, body {
     animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
     position: relative;
     overflow: hidden;
+    z-index: 10;
+    touch-action: manipulation;
 }
 
 .home-card::before, .nickname-card::before {
@@ -211,6 +224,11 @@ html, body {
     align-items: center;
     justify-content: center;
     gap: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(79, 255, 166, 0.3);
+    user-select: none;
+    position: relative;
+    z-index: 10;
 }
 
 .btn-primary {
@@ -306,6 +324,11 @@ html, body {
     font-family: 'Outfit', sans-serif;
     font-size: 1rem;
     transition: all 0.3s ease;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    z-index: 10;
 }
 
 .input-field:focus {
@@ -1059,8 +1082,13 @@ html, body {
 }
 
 @media (max-width: 768px) {
+    #home-screen, #nickname-screen {
+        z-index: 200;
+    }
+    
     #app-screen {
         display: flex !important;
+        z-index: 200;
     }
     
     .app-container { 
@@ -1280,6 +1308,8 @@ html, body {
     .control-btn {
         width: 48px;
         height: 48px;
+        min-width: 48px;
+        min-height: 48px;
         font-size: 1.1rem;
     }
     
@@ -1306,7 +1336,8 @@ html, body {
     }
     
     .header-btn {
-        padding: 6px 10px;
+        padding: 10px 14px;
+        min-height: 44px;
         font-size: 0.75rem;
     }
     
@@ -1337,13 +1368,25 @@ html, body {
     }
     
     .btn {
-        padding: 12px 16px;
+        padding: 14px 20px;
+        min-height: 44px;
         font-size: 0.85rem;
     }
     
     .input-field {
-        padding: 12px 14px;
+        padding: 14px 16px;
+        min-height: 44px;
         font-size: 1rem;
+    }
+    
+    .send-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    .input-action-btn {
+        min-width: 44px;
+        min-height: 44px;
     }
 }
 
@@ -1658,9 +1701,9 @@ async function init() {
     await fakeLoading();
     loadingScreen.style.opacity = '0';
     loadingScreen.style.transform = 'scale(1.1)';
+    loadingScreen.style.pointerEvents = 'none';
     await delay(600);
     loadingScreen.style.display = 'none';
-    loadingScreen.style.pointerEvents = 'none';
     
     const path = window.location.pathname;
     const match = path.match(/\/room\/([a-z0-9-]+)/i);
@@ -1697,9 +1740,13 @@ function showScreen(screen) {
     [homeScreen, nicknameScreen, appScreen].forEach(s => {
         s.style.display = 'none';
         s.style.opacity = '0';
+        s.style.pointerEvents = 'none';
     });
     screen.style.display = 'flex';
-    requestAnimationFrame(() => screen.style.opacity = '1');
+    screen.style.pointerEvents = 'auto';
+    requestAnimationFrame(() => {
+        screen.style.opacity = '1';
+    });
 }
 
 async function checkRoom() {
