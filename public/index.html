@@ -50,7 +50,7 @@ html, body {
 .noise-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--noise-bg);
-    opacity: 0.03; pointer-events: none; z-index: 9999;
+    opacity: 0.03; pointer-events: none; z-index: 1;
 }
 
 #loading-screen {
@@ -59,6 +59,7 @@ html, body {
     align-items: center; justify-content: center;
     background: radial-gradient(ellipse at 50% 30%, #111 0%, #000 100%);
     transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
 }
 
 .loading-grid {
@@ -158,6 +159,7 @@ html, body {
     display: none; flex-direction: column; align-items: center; justify-content: center;
     background: var(--bg-primary);
     transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: auto;
 }
 
 .home-card, .nickname-card {
@@ -1658,6 +1660,7 @@ async function init() {
     loadingScreen.style.transform = 'scale(1.1)';
     await delay(600);
     loadingScreen.style.display = 'none';
+    loadingScreen.style.pointerEvents = 'none';
     
     const path = window.location.pathname;
     const match = path.match(/\/room\/([a-z0-9-]+)/i);
