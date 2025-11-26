@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XioEbetVoice</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@300;400;600;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #111111;
+    --bg-tertiary: #1a1a1a;
+    --bg-hover: #222222;
+    --accent: #4fffa6;
+    --accent-dim: rgba(79, 255, 166, 0.15);
+    --accent-glow: rgba(79, 255, 166, 0.3);
+    --danger: #ff4757;
+    --warning: #ffa502;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.3);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --noise-bg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+*:focus { outline: none; }
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+html, body {
+    height: 100%; width: 100%;
+    overflow: hidden;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+.noise-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--noise-bg);
+    opacity: 0.03; pointer-events: none; z-index: 9999;
+}
+
+#loading-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1000; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 30%, #111 0%, #000 100%);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.loading-grid {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        linear-gradient(rgba(79, 255, 166, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 255, 166, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridMove 20s linear infinite;
+}
+
+.loading-corners {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+}
+
+.loading-corner {
+    position: absolute; width: 50px; height: 50px;
+    border: 1px solid rgba(79, 255, 166, 0.1);
+}
+
+.loading-corner-tl { top: 30px; left: 30px; border-right: none; border-bottom: none; animation: cornerFade 2s ease-out 0.3s both; }
+.loading-corner-tr { top: 30px; right: 30px; border-left: none; border-bottom: none; animation: cornerFade 2s ease-out 0.5s both; }
+.loading-corner-bl { bottom: 30px; left: 30px; border-right: none; border-top: none; animation: cornerFade 2s ease-out 0.7s both; }
+.loading-corner-br { bottom: 30px; right: 30px; border-left: none; border-top: none; animation: cornerFade 2s ease-out 0.9s both; }
+
+.loading-content {
+    position: relative; z-index: 10; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 50px;
+    animation: fadeUp 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.loading-logo-wrapper {
+    display: flex; flex-direction: column; align-items: center; gap: 15px;
+}
+
+.loading-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    font-weight: 900;
+    background: linear-gradient(180deg, #4fffa6 0%, rgba(79, 255, 166, 0.3) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    animation: logoGlow 3s ease-in-out infinite;
+    text-shadow: 0 0 40px rgba(79, 255, 166, 0.2);
+}
+
+.loading-tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+}
+
+.loading-progress-wrapper {
+    width: 300px; max-width: 80vw;
+    display: flex; flex-direction: column; gap: 15px; align-items: center;
+}
+
+.loading-progress-container {
+    width: 100%; height: 3px;
+    background: rgba(79, 255, 166, 0.1);
+    border-radius: 3px; overflow: hidden;
+    position: relative;
+}
+
+.loading-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), rgba(79, 255, 166, 0.7));
+    border-radius: 3px; width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 20px var(--accent-glow);
+    position: relative;
+}
+
+.loading-progress-bar::after {
+    content: ''; position: absolute; right: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.loading-percent {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+}
+
+#home-screen, #nickname-screen, #app-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--bg-primary);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.home-card, .nickname-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.home-card::before, .nickname-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+}
+
+.card-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+}
+
+.card-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+}
+
+.btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px var(--accent-glow);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    margin-top: 12px;
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+}
+
+.generated-link {
+    display: none;
+    margin-top: 25px;
+    padding: 20px;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.generated-link.show { display: block; animation: fadeIn 0.3s ease; }
+
+.link-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.link-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+    word-break: break-all;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.link-value:hover {
+    background: var(--bg-hover);
+}
+
+.link-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.link-actions .btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 0.8rem;
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-align: left;
+}
+
+.input-field {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.input-field::placeholder {
+    color: var(--text-muted);
+}
+
+.room-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background: var(--accent-dim);
+    border-radius: 10px;
+    margin-bottom: 25px;
+    font-size: 0.85rem;
+    color: var(--accent);
+}
+
+#app-screen {
+    flex-direction: row;
+    padding: 0;
+}
+
+.app-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 2px;
+}
+
+.room-id-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+.participants-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.section-title {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.participant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.participant-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.participant-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-dim), var(--bg-tertiary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--accent);
+    position: relative;
+}
+
+.participant-avatar.speaking {
+    box-shadow: 0 0 0 3px var(--accent);
+    animation: speakingPulse 1s ease-in-out infinite;
+}
+
+.participant-status {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border: 2px solid var(--bg-secondary);
+    border-radius: 50%;
+}
+
+.participant-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.participant-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.participant-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.participant-icons {
+    display: flex;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.participant-icons i.active { color: var(--danger); }
+.participant-icons i.screen { color: var(--accent); }
+
+.user-controls {
+    padding: 15px;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--bg-primary);
+}
+
+.user-details {
+    flex: 1;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.user-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.control-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.control-btn {
+    flex: 1;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.control-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.control-btn.active {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+}
+
+.control-btn.screen-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-primary);
+}
+
+.control-btn.leave {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.control-btn.leave:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+}
+
+.content-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-secondary);
+}
+
+.channel-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.channel-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent-dim);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+}
+
+.channel-name {
+    font-weight: 600;
+}
+
+.channel-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.header-btn {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.header-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.content-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    display: flex;
+    gap: 12px;
+    animation: messageIn 0.3s ease;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.message-author {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.message-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.message-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    word-wrap: break-word;
+}
+
+.message-image {
+    max-width: 400px;
+    max-height: 300px;
+    border-radius: 10px;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.message-image:hover {
+    transform: scale(1.02);
+}
+
+.chat-input-area {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.chat-input-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.chat-input-container:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    resize: none;
+    max-height: 120px;
+}
+
+.chat-input::placeholder {
+    color: var(--text-muted);
+}
+
+.input-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.input-action-btn {
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.send-btn {
+    width: 44px;
+    height: 44px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: var(--bg-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px var(--accent-glow);
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.screen-share-panel {
+    width: 0;
+    overflow: hidden;
+    border-left: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    transition: width 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.screen-share-panel.active {
+    width: 400px;
+}
+
+.screen-share-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.screen-share-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.screen-share-title i {
+    color: var(--accent);
+}
+
+.close-panel-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+}
+
+.close-panel-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.screen-share-content {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.screen-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.screen-video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--accent);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.screen-video-container {
+    aspect-ratio: 16/9;
+    background: var(--bg-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.no-screen-share {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-muted);
+    text-align: center;
+    gap: 10px;
+}
+
+.no-screen-share i {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+.image-preview {
+    display: none;
+    padding: 10px 20px;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border);
+}
+
+.image-preview.show { display: block; }
+
+.preview-container {
+    position: relative;
+    display: inline-block;
+}
+
+.preview-image {
+    max-height: 100px;
+    border-radius: 8px;
+}
+
+.remove-preview {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: var(--danger);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.image-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    cursor: zoom-out;
+}
+
+.image-modal.show { display: flex; }
+
+.image-modal img {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 10px;
+}
+
+.notification {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 12px 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1500;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.notification i { color: var(--accent); }
+.notification.error i { color: var(--danger); }
+
+@keyframes gridMove {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(60px, 60px); }
+}
+
+@keyframes cornerFade {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes logoGlow {
+    0%, 100% { filter: drop-shadow(0 0 20px rgba(79, 255, 166, 0.2)); }
+    50% { filter: drop-shadow(0 0 40px rgba(79, 255, 166, 0.4)); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes messageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes speakingPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent); }
+    50% { box-shadow: 0 0 0 5px var(--accent-glow); }
+}
+
+@media (max-width: 900px) {
+    .sidebar { width: 240px; min-width: 240px; }
+    .screen-share-panel.active { width: 300px; }
+}
+
+@media (max-width: 768px) {
+    .app-container { flex-direction: column; }
+    .sidebar { 
+        width: 100%; min-width: 100%; 
+        height: auto; max-height: 40vh;
+        border-right: none; border-bottom: 1px solid var(--border);
+    }
+    .screen-share-panel { display: none; }
+    .participants-section { max-height: 150px; }
+}
+</style>
+</head>
+<body>
+<div class="noise-overlay"></div>
+
+<div id="loading-screen">
+    <div class="loading-grid"></div>
+    <div class="loading-corners">
+        <div class="loading-corner loading-corner-tl"></div>
+        <div class="loading-corner loading-corner-tr"></div>
+        <div class="loading-corner loading-corner-bl"></div>
+        <div class="loading-corner loading-corner-br"></div>
+    </div>
+    <div class="loading-content">
+        <div class="loading-logo-wrapper">
+            <div class="loading-logo">XioEbet</div>
+            <div class="loading-tagline">Voice & Chat</div>
+        </div>
+        <div class="loading-progress-wrapper">
+            <div class="loading-progress-container">
+                <div class="loading-progress-bar" id="loading-progress"></div>
+            </div>
+            <div class="loading-percent" id="loading-percent">0%</div>
+        </div>
+    </div>
+</div>
+
+<div id="home-screen">
+    <div class="home-card">
+        <div class="card-logo">XioEbet</div>
+        <div class="card-subtitle">Создай комнату и позови друзей</div>
+        <button class="btn btn-primary" id="create-room-btn">
+            <i class="fas fa-plus"></i> Создать комнату
+        </button>
+        <div class="generated-link" id="generated-link">
+            <div class="link-label">Ссылка на комнату</div>
+            <div class="link-value" id="room-link" onclick="copyLink()"></div>
+            <div class="link-actions">
+                <button class="btn btn-secondary" onclick="copyLink()">
+                    <i class="fas fa-copy"></i> Копировать
+                </button>
+                <button class="btn btn-primary" id="join-created-btn">
+                    <i class="fas fa-sign-in-alt"></i> Войти
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="nickname-screen">
+    <div class="nickname-card">
+        <div class="card-logo">XioEbet</div>
+        <div class="room-info" id="room-info">
+            <i class="fas fa-users"></i>
+            <span id="room-participant-count">0</span> участников в комнате
+        </div>
+        <div class="input-group">
+            <label class="input-label">Твой никнейм</label>
+            <input type="text" class="input-field" id="nickname-input" placeholder="Введи никнейм..." maxlength="20" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="join-btn" disabled>
+            <i class="fas fa-headset"></i> Присоединиться
+        </button>
+    </div>
+</div>
+
+<div id="app-screen">
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">XioEbet</div>
+                <div class="room-id-badge" id="room-id-display"></div>
+            </div>
+            <div class="participants-section">
+                <div class="section-title">
+                    <span>В голосовом канале — <span id="participant-count">0</span></span>
+                </div>
+                <div class="participant-list" id="participant-list"></div>
+            </div>
+            <div class="user-controls">
+                <div class="user-info">
+                    <div class="user-avatar" id="my-avatar"></div>
+                    <div class="user-details">
+                        <div class="user-name" id="my-name"></div>
+                        <div class="user-key" id="my-key"></div>
+                    </div>
+                </div>
+                <div class="control-buttons">
+                    <button class="control-btn" id="mute-btn" title="Микрофон">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button class="control-btn" id="deafen-btn" title="Звук">
+                        <i class="fas fa-headphones"></i>
+                    </button>
+                    <button class="control-btn" id="screen-btn" title="Демонстрация экрана">
+                        <i class="fas fa-desktop"></i>
+                    </button>
+                    <button class="control-btn leave" id="leave-btn" title="Выйти">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="content-header">
+                <div class="channel-info">
+                    <div class="channel-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div>
+                        <div class="channel-name">Общий чат</div>
+                        <div class="channel-status">Голос + Текст</div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" id="toggle-screen-panel">
+                        <i class="fas fa-tv"></i> Демки
+                    </button>
+                    <button class="header-btn" onclick="copyCurrentLink()">
+                        <i class="fas fa-link"></i> Ссылка
+                    </button>
+                </div>
+            </div>
+            <div class="content-body">
+                <div class="chat-area">
+                    <div class="messages-container" id="messages-container"></div>
+                    <div class="image-preview" id="image-preview">
+                        <div class="preview-container">
+                            <img class="preview-image" id="preview-image" src="">
+                            <button class="remove-preview" onclick="removeImagePreview()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <div class="chat-input-wrapper">
+                            <div class="chat-input-container">
+                                <textarea class="chat-input" id="chat-input" placeholder="Написать сообщение..." rows="1"></textarea>
+                                <div class="input-actions">
+                                    <input type="file" id="image-input" accept="image/*" hidden>
+                                    <button class="input-action-btn" onclick="document.getElementById('image-input').click()" title="Прикрепить изображение">
+                                        <i class="fas fa-image"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="send-btn" id="send-btn" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="screen-share-panel" id="screen-share-panel">
+                    <div class="screen-share-header">
+                        <div class="screen-share-title">
+                            <i class="fas fa-tv"></i> Демонстрации
+                        </div>
+                        <button class="close-panel-btn" onclick="toggleScreenPanel()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="screen-share-content" id="screen-share-content">
+                        <div class="no-screen-share">
+                            <i class="fas fa-desktop"></i>
+                            <span>Никто не показывает экран</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="image-modal" id="image-modal" onclick="closeImageModal()">
+    <img id="modal-image" src="">
+</div>
+
+<div class="notification" id="notification">
+    <i class="fas fa-check-circle"></i>
+    <span id="notification-text"></span>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+const state = {
+    ws: null,
+    clientId: null,
+    roomId: null,
+    nickname: null,
+    userKey: null,
+    participants: new Map(),
+    peerConnections: new Map(),
+    localStream: null,
+    screenStream: null,
+    isMuted: false,
+    isDeafened: false,
+    isScreenSharing: false,
+    pendingImage: null,
+    screenSharers: new Map()
+};
+
+const config = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+};
+
+const loadingScreen = $('#loading-screen');
+const homeScreen = $('#home-screen');
+const nicknameScreen = $('#nickname-screen');
+const appScreen = $('#app-screen');
+const notification = $('#notification');
+
+async function init() {
+    await fakeLoading();
+    loadingScreen.style.opacity = '0';
+    loadingScreen.style.transform = 'scale(1.1)';
+    await delay(600);
+    loadingScreen.style.display = 'none';
+    
+    const path = window.location.pathname;
+    const match = path.match(/\/room\/([a-z0-9-]+)/i);
+    
+    if (match) {
+        state.roomId = match[1];
+        await checkRoom();
+    } else {
+        showScreen(homeScreen);
+    }
+}
+
+async function fakeLoading() {
+    const bar = $('#loading-progress');
+    const percent = $('#loading-percent');
+    const duration = 2500;
+    const start = Date.now();
+    
+    return new Promise(resolve => {
+        function update() {
+            const elapsed = Date.now() - start;
+            const progress = Math.min((elapsed / duration) * 100, 100);
+            bar.style.width = progress + '%';
+            percent.textContent = Math.floor(progress) + '%';
+            
+            if (progress < 100) requestAnimationFrame(update);
+            else resolve();
+        }
+        requestAnimationFrame(update);
+    });
+}
+
+function showScreen(screen) {
+    [homeScreen, nicknameScreen, appScreen].forEach(s => {
+        s.style.display = 'none';
+        s.style.opacity = '0';
+    });
+    screen.style.display = 'flex';
+    requestAnimationFrame(() => screen.style.opacity = '1');
+}
+
+async function checkRoom() {
+    try {
+        const res = await fetch(`/api/room/${state.roomId}`);
+        const data = await res.json();
+        
+        if (data.exists) {
+            $('#room-participant-count').textContent = data.participantCount;
+            showScreen(nicknameScreen);
+        } else {
+            showNotification('Комната не найдена', true);
+            showScreen(homeScreen);
+        }
+    } catch (e) {
+        showNotification('Ошибка подключения', true);
+        showScreen(homeScreen);
+    }
+}
+
+$('#create-room-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/create-room', { method: 'POST' });
+        const data = await res.json();
+        
+        state.roomId = data.roomId;
+        const link = window.location.origin + data.link;
+        $('#room-link').textContent = link;
+        $('#generated-link').classList.add('show');
+        
+        showNotification('Комната создана!');
+    } catch (e) {
+        showNotification('Ошибка создания комнаты', true);
+    }
+});
+
+$('#join-created-btn').addEventListener('click', () => {
+    window.history.pushState({}, '', `/room/${state.roomId}`);
+    $('#room-participant-count').textContent = '0';
+    showScreen(nicknameScreen);
+});
+
+const nicknameInput = $('#nickname-input');
+const joinBtn = $('#join-btn');
+
+nicknameInput.addEventListener('input', () => {
+    joinBtn.disabled = nicknameInput.value.trim().length < 2;
+});
+
+nicknameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !joinBtn.disabled) {
+        joinRoom();
+    }
+});
+
+joinBtn.addEventListener('click', joinRoom);
+
+async function joinRoom() {
+    state.nickname = nicknameInput.value.trim();
+    if (!state.nickname || !state.roomId) return;
+    
+    try {
+        state.localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 48000,
+                channelCount: 1
+            }, 
+            video: false 
+        });
+    } catch (e) {
+        showNotification('Нет доступа к микрофону', true);
+        return;
+    }
+    
+    connectWebSocket();
+}
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    state.ws = new WebSocket(`${protocol}//${window.location.host}`);
+    
+    state.ws.onopen = () => {
+        console.log('WebSocket connected');
+    };
+    
+    state.ws.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        handleWSMessage(msg);
+    };
+    
+    state.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        showNotification('Соединение потеряно', true);
+    };
+}
+
+function handleWSMessage(msg) {
+    switch (msg.type) {
+        case 'connected':
+            state.clientId = msg.clientId;
+            state.ws.send(JSON.stringify({
+                type: 'join-room',
+                roomId: state.roomId,
+                nickname: state.nickname
+            }));
+            break;
+            
+        case 'joined':
+            state.userKey = msg.userKey;
+            state.participants.clear();
+            msg.participants.forEach(p => state.participants.set(p.id, p));
+            
+            showScreen(appScreen);
+            setupUI();
+            loadMessages(msg.messages);
+            
+            msg.participants.forEach(p => {
+                if (p.id !== state.clientId) {
+                    createPeerConnection(p.id, true);
+                }
+            });
+            break;
+            
+        case 'user-joined':
+            state.participants.set(msg.user.id, msg.user);
+            updateParticipantList();
+            showNotification(`${msg.user.nickname} присоединился`);
+            break;
+            
+        case 'user-left':
+            state.participants.delete(msg.clientId);
+            closePeerConnection(msg.clientId);
+            updateParticipantList();
+            showNotification(`${msg.nickname} вышел`);
+            break;
+            
+        case 'participants-update':
+            state.participants.clear();
+            msg.participants.forEach(p => state.participants.set(p.id, p));
+            updateParticipantList();
+            break;
+            
+        case 'chat-message':
+            addMessage(msg.message);
+            break;
+            
+        case 'webrtc-offer':
+            handleOffer(msg.senderId, msg.offer);
+            break;
+            
+        case 'webrtc-answer':
+            handleAnswer(msg.senderId, msg.answer);
+            break;
+            
+        case 'webrtc-ice-candidate':
+            handleIceCandidate(msg.senderId, msg.candidate);
+            break;
+            
+        case 'user-mute-changed':
+            updateParticipantMute(msg.clientId, msg.isMuted);
+            break;
+            
+        case 'user-deafen-changed':
+            updateParticipantDeafen(msg.clientId, msg.isDeafened);
+            break;
+            
+        case 'screen-share-started':
+            showNotification(`${msg.nickname} показывает экран`);
+            break;
+            
+        case 'screen-share-stopped':
+            removeScreenVideo(msg.clientId);
+            break;
+    }
+}
+
+function setupUI() {
+    $('#room-id-display').textContent = '#' + state.roomId;
+    $('#my-avatar').textContent = state.nickname[0].toUpperCase();
+    $('#my-name').textContent = state.nickname;
+    $('#my-key').textContent = state.userKey;
+    updateParticipantList();
+}
+
+function updateParticipantList() {
+    const list = $('#participant-list');
+    const count = $('#participant-count');
+    
+    count.textContent = state.participants.size;
+    list.innerHTML = '';
+    
+    state.participants.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'participant-item';
+        item.id = `participant-${p.id}`;
+        
+        const isMe = p.id === state.clientId;
+        const isMuted = p.isMuted || false;
+        const isDeafened = p.isDeafened || false;
+        const isScreening = p.isScreenSharing || false;
+        
+        item.innerHTML = `
+            <div class="participant-avatar ${isMe ? '' : ''}" id="avatar-${p.id}">
+                ${p.nickname[0].toUpperCase()}
+                <div class="participant-status"></div>
+            </div>
+            <div class="participant-info">
+                <div class="participant-name">${p.nickname}${isMe ? ' (ты)' : ''}</div>
+                <div class="participant-key">${p.userKey}</div>
+            </div>
+            <div class="participant-icons">
+                ${isMuted ? '<i class="fas fa-microphone-slash active"></i>' : ''}
+                ${isDeafened ? '<i class="fas fa-volume-mute active"></i>' : ''}
+                ${isScreening ? '<i class="fas fa-desktop screen"></i>' : ''}
+            </div>
+        `;
+        
+        list.appendChild(item);
+    });
+}
+
+function updateParticipantMute(clientId, isMuted) {
+    const p = state.participants.get(clientId);
+    if (p) {
+        p.isMuted = isMuted;
+        updateParticipantList();
+    }
+}
+
+function updateParticipantDeafen(clientId, isDeafened) {
+    const p = state.participants.get(clientId);
+    if (p) {
+        p.isDeafened = isDeafened;
+        updateParticipantList();
+    }
+}
+
+async function createPeerConnection(peerId, isInitiator) {
+    if (state.peerConnections.has(peerId)) return;
+    
+    const pc = new RTCPeerConnection(config);
+    state.peerConnections.set(peerId, pc);
+    
+    if (state.localStream) {
+        state.localStream.getTracks().forEach(track => {
+            pc.addTrack(track, state.localStream);
+        });
+    }
+    
+    pc.ontrack = e => {
+        const track = e.track;
+        const stream = e.streams[0];
+        
+        if (track.kind === 'audio') {
+            let audio = $(`#audio-${peerId}`);
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = `audio-${peerId}`;
+                audio.autoplay = true;
+                document.body.appendChild(audio);
+            }
+            audio.srcObject = stream;
+            if (state.isDeafened) {
+                audio.muted = true;
+            }
+        } else if (track.kind === 'video') {
+            let videoContainer = $(`#screen-container-${peerId}`);
+            if (!videoContainer) {
+                videoContainer = document.createElement('div');
+                videoContainer.id = `screen-container-${peerId}`;
+                videoContainer.className = 'screen-video-container';
+                
+                const participant = state.participants.get(peerId);
+                const name = participant ? participant.nickname : 'Unknown';
+                
+                videoContainer.innerHTML = `
+                    <video class="screen-video" id="screen-video-${peerId}" autoplay playsinline></video>
+                    <div class="screen-video-label">${name}</div>
+                `;
+                
+                const content = $('#screen-share-content');
+                const noShare = content.querySelector('.no-screen-share');
+                if (noShare) noShare.remove();
+                content.appendChild(videoContainer);
+            }
+            
+            const video = $(`#screen-video-${peerId}`);
+            if (video) {
+                video.srcObject = stream;
+            }
+            
+            state.screenSharers.set(peerId, state.participants.get(peerId)?.nickname || 'Unknown');
+            
+            track.onended = () => {
+                removeScreenVideo(peerId);
+            };
+        }
+    };
+    
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            state.ws.send(JSON.stringify({
+                type: 'webrtc-ice-candidate',
+                targetId: peerId,
+                candidate: e.candidate
+            }));
+        }
+    };
+    
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+            closePeerConnection(peerId);
+        }
+    };
+    
+    if (isInitiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        state.ws.send(JSON.stringify({
+            type: 'webrtc-offer',
+            targetId: peerId,
+            offer: pc.localDescription
+        }));
+    }
+}
+
+async function handleOffer(senderId, offer) {
+    await createPeerConnection(senderId, false);
+    const pc = state.peerConnections.get(senderId);
+    
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    
+    state.ws.send(JSON.stringify({
+        type: 'webrtc-answer',
+        targetId: senderId,
+        answer: pc.localDescription
+    }));
+}
+
+async function handleAnswer(senderId, answer) {
+    const pc = state.peerConnections.get(senderId);
+    if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+}
+
+async function handleIceCandidate(senderId, candidate) {
+    const pc = state.peerConnections.get(senderId);
+    if (pc) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+}
+
+function closePeerConnection(peerId) {
+    const pc = state.peerConnections.get(peerId);
+    if (pc) {
+        pc.close();
+        state.peerConnections.delete(peerId);
+    }
+    
+    const audio = $(`#audio-${peerId}`);
+    if (audio) audio.remove();
+}
+
+$('#mute-btn').addEventListener('click', () => {
+    state.isMuted = !state.isMuted;
+    const btn = $('#mute-btn');
+    
+    if (state.localStream) {
+        state.localStream.getAudioTracks().forEach(track => {
+            track.enabled = !state.isMuted;
+        });
+    }
+    
+    btn.classList.toggle('active', state.isMuted);
+    btn.innerHTML = state.isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+    
+    state.ws.send(JSON.stringify({
+        type: 'toggle-mute',
+        isMuted: state.isMuted
+    }));
+});
+
+$('#deafen-btn').addEventListener('click', () => {
+    state.isDeafened = !state.isDeafened;
+    const btn = $('#deafen-btn');
+    
+    $$('audio').forEach(audio => {
+        audio.muted = state.isDeafened;
+    });
+    
+    btn.classList.toggle('active', state.isDeafened);
+    btn.innerHTML = state.isDeafened ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-headphones"></i>';
+    
+    state.ws.send(JSON.stringify({
+        type: 'toggle-deafen',
+        isDeafened: state.isDeafened
+    }));
+});
+
+$('#screen-btn').addEventListener('click', async () => {
+    if (state.isScreenSharing) {
+        stopScreenShare();
+    } else {
+        await startScreenShare();
+    }
+});
+
+async function startScreenShare() {
+    try {
+        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+        });
+        
+        state.isScreenSharing = true;
+        $('#screen-btn').classList.add('screen-active');
+        
+        state.screenStream.getVideoTracks()[0].onended = () => {
+            stopScreenShare();
+        };
+        
+        state.screenSenders = new Map();
+        
+        for (const [peerId, pc] of state.peerConnections) {
+            const track = state.screenStream.getVideoTracks()[0];
+            const sender = pc.addTrack(track, state.screenStream);
+            state.screenSenders.set(peerId, sender);
+            
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            state.ws.send(JSON.stringify({
+                type: 'webrtc-offer',
+                targetId: peerId,
+                offer: pc.localDescription
+            }));
+        }
+        
+        state.ws.send(JSON.stringify({ type: 'screen-share-started' }));
+        
+    } catch (e) {
+        console.log('Screen share cancelled');
+    }
+}
+
+function stopScreenShare() {
+    if (state.screenStream) {
+        state.screenStream.getTracks().forEach(track => track.stop());
+        state.screenStream = null;
+    }
+    
+    if (state.screenSenders) {
+        state.screenSenders.forEach((sender, peerId) => {
+            const pc = state.peerConnections.get(peerId);
+            if (pc) {
+                try {
+                    pc.removeTrack(sender);
+                } catch (e) {}
+            }
+        });
+        state.screenSenders.clear();
+    }
+    
+    state.isScreenSharing = false;
+    $('#screen-btn').classList.remove('screen-active');
+    
+    state.ws.send(JSON.stringify({ type: 'screen-share-stopped' }));
+}
+
+function removeScreenVideo(peerId) {
+    const container = $(`#screen-container-${peerId}`);
+    if (container) {
+        container.remove();
+    }
+    state.screenSharers.delete(peerId);
+    
+    const content = $('#screen-share-content');
+    if (!content.querySelector('.screen-video-container')) {
+        content.innerHTML = `
+            <div class="no-screen-share">
+                <i class="fas fa-desktop"></i>
+                <span>Никто не показывает экран</span>
+            </div>
+        `;
+    }
+}
+
+$('#leave-btn').addEventListener('click', () => {
+    leaveRoom();
+});
+
+function leaveRoom() {
+    if (state.localStream) {
+        state.localStream.getTracks().forEach(track => track.stop());
+    }
+    if (state.screenStream) {
+        state.screenStream.getTracks().forEach(track => track.stop());
+    }
+    
+    state.peerConnections.forEach(pc => pc.close());
+    state.peerConnections.clear();
+    
+    if (state.ws) {
+        state.ws.close();
+    }
+    
+    $$('audio').forEach(a => a.remove());
+    
+    window.location.href = '/';
+}
+
+function loadMessages(messages) {
+    const container = $('#messages-container');
+    container.innerHTML = '';
+    messages.forEach(msg => addMessage(msg, false));
+}
+
+function addMessage(msg, scroll = true) {
+    const container = $('#messages-container');
+    const div = document.createElement('div');
+    div.className = 'message';
+    
+    const time = new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    
+    let imageHtml = '';
+    if (msg.image) {
+        imageHtml = `<img class="message-image" src="${msg.image}" onclick="openImageModal(this.src)">`;
+    }
+    
+    div.innerHTML = `
+        <div class="message-avatar">${msg.senderName[0].toUpperCase()}</div>
+        <div class="message-content">
+            <div class="message-header">
+                <span class="message-author">${msg.senderName}</span>
+                <span class="message-time">${time}</span>
+            </div>
+            ${msg.content ? `<div class="message-text">${escapeHtml(msg.content)}</div>` : ''}
+            ${imageHtml}
+        </div>
+    `;
+    
+    container.appendChild(div);
+    if (scroll) container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+const chatInput = $('#chat-input');
+const sendBtn = $('#send-btn');
+const imageInput = $('#image-input');
+
+chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+    updateSendButton();
+});
+
+chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+sendBtn.addEventListener('click', sendMessage);
+
+imageInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showNotification('Файл слишком большой (макс. 5MB)', true);
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = evt => {
+        state.pendingImage = evt.target.result;
+        $('#preview-image').src = state.pendingImage;
+        $('#image-preview').classList.add('show');
+        updateSendButton();
+    };
+    reader.readAsDataURL(file);
+});
+
+function updateSendButton() {
+    sendBtn.disabled = !chatInput.value.trim() && !state.pendingImage;
+}
+
+window.removeImagePreview = function() {
+    state.pendingImage = null;
+    $('#image-preview').classList.remove('show');
+    imageInput.value = '';
+    updateSendButton();
+};
+
+function sendMessage() {
+    const content = chatInput.value.trim();
+    if (!content && !state.pendingImage) return;
+    
+    state.ws.send(JSON.stringify({
+        type: 'chat-message',
+        roomId: state.roomId,
+        content: content,
+        image: state.pendingImage
+    }));
+    
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    removeImagePreview();
+}
+
+window.openImageModal = function(src) {
+    $('#modal-image').src = src;
+    $('#image-modal').classList.add('show');
+};
+
+window.closeImageModal = function() {
+    $('#image-modal').classList.remove('show');
+};
+
+function toggleScreenPanel() {
+    $('#screen-share-panel').classList.toggle('active');
+}
+
+window.toggleScreenPanel = toggleScreenPanel;
+
+$('#toggle-screen-panel').addEventListener('click', toggleScreenPanel);
+
+
+window.copyLink = function() {
+    const link = $('#room-link').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        showNotification('Ссылка скопирована!');
+    });
+};
+
+window.copyCurrentLink = function() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        showNotification('Ссылка скопирована!');
+    });
+};
+
+function showNotification(text, isError = false) {
+    const notif = $('#notification');
+    $('#notification-text').textContent = text;
+    notif.className = 'notification' + (isError ? ' error' : '');
+    notif.classList.add('show');
+    
+    setTimeout(() => notif.classList.remove('show'), 3000);
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeImageModal();
+    }
+});
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+})();
+</script>
+</body>
+</html>
+

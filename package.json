@@ -1,0 +1,16 @@
+{
+  "name": "frends-voice",
+  "version": "1.0.0",
+  "description": "Voice chat for friends",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "uuid": "^9.0.1"
+  }
+}
+
