@@ -1027,6 +1027,125 @@ html, body {
     z-index: 5001;
 }
 
+.screen-video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.screen-video-container:hover .screen-video-controls {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .screen-video-controls {
+        opacity: 1;
+    }
+}
+
+.screen-control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-size: 0.8rem;
+}
+
+.screen-control-row i {
+    width: 20px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.screen-volume-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+    outline: none;
+}
+
+.screen-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.screen-volume-value {
+    min-width: 40px;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+}
+
+.screen-disable-btn {
+    background: rgba(255, 71, 87, 0.2);
+    border: 1px solid rgba(255, 71, 87, 0.5);
+    color: #ff4757;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.screen-disable-btn:hover {
+    background: rgba(255, 71, 87, 0.4);
+}
+
+.screen-video-fullscreen .screen-video-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 5002;
+    opacity: 1;
+}
+
+.screen-disabled-notice {
+    padding: 20px;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.screen-disabled-notice p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+}
+
+.screen-enable-btn {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
 .no-screen-share {
     display: flex;
     flex-direction: column;
@@ -1862,7 +1981,9 @@ const state = {
     pendingImage: null,
     screenSharers: new Map(),
     userVolumes: new Map(),
-    currentContextUser: null
+    currentContextUser: null,
+    screenVolumes: new Map(),
+    disabledScreens: new Set()
 };
 
 const config = {
@@ -2356,6 +2477,10 @@ async function createPeerConnection(peerId, isInitiator) {
         } else if (track.kind === 'video') {
             console.log('Received video track from:', peerId);
             
+            if (state.disabledScreens?.has(peerId)) {
+                return;
+            }
+            
             let videoContainer = $(`#screen-container-${peerId}`);
             if (!videoContainer) {
                 videoContainer = document.createElement('div');
@@ -2370,20 +2495,55 @@ async function createPeerConnection(peerId, isInitiator) {
                 video.id = `screen-video-${peerId}`;
                 video.autoplay = true;
                 video.playsInline = true;
-                video.muted = true;
                 video.setAttribute('playsinline', '');
                 video.setAttribute('webkit-playsinline', '');
+                video.volume = state.screenVolumes?.get(peerId) ?? 0.5;
                 
                 const label = document.createElement('div');
                 label.className = 'screen-video-label';
                 label.textContent = name;
                 
+                const controls = document.createElement('div');
+                controls.className = 'screen-video-controls';
+                controls.innerHTML = `
+                    <div class="screen-control-row">
+                        <i class="fas fa-volume-up"></i>
+                        <input type="range" class="screen-volume-slider" min="0" max="100" value="${(state.screenVolumes?.get(peerId) ?? 50)}" data-peer="${peerId}">
+                        <span class="screen-volume-value">${(state.screenVolumes?.get(peerId) ?? 50)}%</span>
+                    </div>
+                    <button class="screen-disable-btn" data-peer="${peerId}">
+                        <i class="fas fa-eye-slash"></i> Отключить демку
+                    </button>
+                `;
+                
                 videoContainer.appendChild(video);
                 videoContainer.appendChild(label);
+                videoContainer.appendChild(controls);
                 
-                videoContainer.addEventListener('click', () => {
-                    toggleVideoFullscreen(videoContainer);
+                video.addEventListener('click', (e) => {
+                    if (!e.target.closest('.screen-video-controls')) {
+                        toggleVideoFullscreen(videoContainer);
+                    }
                 });
+                
+                controls.querySelector('.screen-volume-slider').addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    const vol = parseInt(e.target.value);
+                    const peerId = e.target.dataset.peer;
+                    const video = $(`#screen-video-${peerId}`);
+                    if (video) video.volume = vol / 100;
+                    if (!state.screenVolumes) state.screenVolumes = new Map();
+                    state.screenVolumes.set(peerId, vol);
+                    controls.querySelector('.screen-volume-value').textContent = vol + '%';
+                });
+                
+                controls.querySelector('.screen-disable-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const peerId = e.target.closest('.screen-disable-btn').dataset.peer;
+                    disableScreenShare(peerId);
+                });
+                
+                controls.addEventListener('click', e => e.stopPropagation());
                 
                 const content = $('#screen-share-content');
                 const noShare = content.querySelector('.no-screen-share');
@@ -2538,8 +2698,17 @@ $('#screen-btn').addEventListener('click', async () => {
 async function startScreenShare() {
     try {
         state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' },
-            audio: false
+            video: {
+                cursor: 'always',
+                width: { ideal: 2560, max: 2560 },
+                height: { ideal: 1440, max: 1440 },
+                frameRate: { ideal: 60, max: 60 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: 48000
+            }
         });
         
         state.isScreenSharing = true;
@@ -2552,9 +2721,19 @@ async function startScreenShare() {
         state.screenSenders = new Map();
         
         for (const [peerId, pc] of state.peerConnections) {
-            const track = state.screenStream.getVideoTracks()[0];
-            const sender = pc.addTrack(track, state.screenStream);
-            state.screenSenders.set(peerId, sender);
+            const senders = [];
+            
+            const videoTrack = state.screenStream.getVideoTracks()[0];
+            if (videoTrack) {
+                senders.push(pc.addTrack(videoTrack, state.screenStream));
+            }
+            
+            const audioTrack = state.screenStream.getAudioTracks()[0];
+            if (audioTrack) {
+                senders.push(pc.addTrack(audioTrack, state.screenStream));
+            }
+            
+            state.screenSenders.set(peerId, senders);
             
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -2579,12 +2758,14 @@ function stopScreenShare() {
     }
     
     if (state.screenSenders) {
-        state.screenSenders.forEach((sender, peerId) => {
+        state.screenSenders.forEach((senders, peerId) => {
             const pc = state.peerConnections.get(peerId);
-            if (pc) {
-                try {
-                    pc.removeTrack(sender);
-                } catch (e) {}
+            if (pc && Array.isArray(senders)) {
+                senders.forEach(sender => {
+                    try {
+                        pc.removeTrack(sender);
+                    } catch (e) {}
+                });
             }
         });
         state.screenSenders.clear();
@@ -2601,10 +2782,15 @@ function removeScreenVideo(peerId) {
     if (container) {
         container.remove();
     }
+    const notice = $(`#screen-disabled-${peerId}`);
+    if (notice) {
+        notice.remove();
+    }
     state.screenSharers.delete(peerId);
+    state.disabledScreens.delete(peerId);
     
     const content = $('#screen-share-content');
-    if (!content.querySelector('.screen-video-container')) {
+    if (!content.querySelector('.screen-video-container') && !content.querySelector('.screen-disabled-notice')) {
         content.innerHTML = `
             <div class="no-screen-share">
                 <i class="fas fa-desktop"></i>
@@ -2612,6 +2798,45 @@ function removeScreenVideo(peerId) {
             </div>
         `;
     }
+}
+
+function disableScreenShare(peerId) {
+    state.disabledScreens.add(peerId);
+    
+    const container = $(`#screen-container-${peerId}`);
+    const participant = state.participants.get(peerId);
+    const name = participant ? participant.nickname : 'Unknown';
+    
+    if (container) {
+        const video = container.querySelector('video');
+        if (video) {
+            video.srcObject = null;
+        }
+        container.remove();
+    }
+    
+    const content = $('#screen-share-content');
+    const notice = document.createElement('div');
+    notice.className = 'screen-disabled-notice';
+    notice.id = `screen-disabled-${peerId}`;
+    notice.innerHTML = `
+        <p><i class="fas fa-eye-slash"></i> Демка от <strong>${name}</strong> отключена</p>
+        <button class="screen-enable-btn" onclick="enableScreenShare('${peerId}')">
+            <i class="fas fa-eye"></i> Включить обратно
+        </button>
+    `;
+    content.appendChild(notice);
+    
+    showNotification('Демка отключена для экономии трафика');
+}
+
+window.enableScreenShare = function(peerId) {
+    state.disabledScreens.delete(peerId);
+    
+    const notice = $(`#screen-disabled-${peerId}`);
+    if (notice) notice.remove();
+    
+    showNotification('Демка включена. Перезапусти демку для просмотра.');
 }
 
 $('#leave-btn').addEventListener('click', () => {
