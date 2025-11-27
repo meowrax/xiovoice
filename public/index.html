@@ -2257,6 +2257,16 @@ function handleWSMessage(msg) {
                     createPeerConnection(p.id, true);
                 }
             });
+            
+            setTimeout(() => {
+                msg.participants.forEach(p => {
+                    if (p.id !== state.clientId && p.isScreenSharing) {
+                        state.screenSharers.set(p.id, { nickname: p.nickname });
+                        sendMessage({ type: 'request-screen', targetId: p.id });
+                    }
+                });
+                updateScreenSharePanel();
+            }, 1500);
             break;
             
         case 'user-joined':
@@ -2303,11 +2313,37 @@ function handleWSMessage(msg) {
             break;
             
         case 'screen-share-started':
+            state.screenSharers.set(msg.clientId, { nickname: msg.nickname });
             showNotification(`${msg.nickname} показывает экран`);
             break;
             
         case 'screen-share-stopped':
             removeScreenVideo(msg.clientId);
+            break;
+            
+        case 'screen-requested':
+            if (state.isScreenSharing && state.screenStream) {
+                const requesterId = msg.requesterId;
+                const pc = state.peerConnections.get(requesterId);
+                if (pc) {
+                    const senders = [];
+                    state.screenStream.getTracks().forEach(track => {
+                        senders.push(pc.addTrack(track, state.screenStream));
+                    });
+                    if (!state.screenSenders) state.screenSenders = new Map();
+                    state.screenSenders.set(requesterId, senders);
+                    
+                    pc.createOffer().then(offer => {
+                        return pc.setLocalDescription(offer);
+                    }).then(() => {
+                        sendMessage({
+                            type: 'webrtc-offer',
+                            targetId: requesterId,
+                            offer: pc.localDescription
+                        });
+                    });
+                }
+            }
             break;
     }
 }
@@ -2434,6 +2470,15 @@ async function createPeerConnection(peerId, isInitiator) {
         state.localStream.getTracks().forEach(track => {
             pc.addTrack(track, state.localStream);
         });
+    }
+    
+    if (state.isScreenSharing && state.screenStream) {
+        const senders = [];
+        state.screenStream.getTracks().forEach(track => {
+            senders.push(pc.addTrack(track, state.screenStream));
+        });
+        if (!state.screenSenders) state.screenSenders = new Map();
+        state.screenSenders.set(peerId, senders);
     }
     
     pc.ontrack = e => {
@@ -2725,6 +2770,16 @@ function removeScreenVideo(peerId) {
                 <span>Никто не показывает экран</span>
             </div>
         `;
+    }
+}
+
+function updateScreenSharePanel() {
+    const content = $('#screen-share-content');
+    if (state.screenSharers.size > 0 && !content.querySelector('.screen-video-container') && !content.querySelector('.screen-disabled-notice')) {
+        const noShare = content.querySelector('.no-screen-share');
+        if (noShare) {
+            noShare.querySelector('span').textContent = 'Загрузка демонстраций...';
+        }
     }
 }
 
