@@ -1983,7 +1983,8 @@ const state = {
     userVolumes: new Map(),
     currentContextUser: null,
     screenVolumes: new Map(),
-    disabledScreens: new Set()
+    disabledScreens: new Set(),
+    screenStreams: new Map()
 };
 
 const config = {
@@ -2477,87 +2478,13 @@ async function createPeerConnection(peerId, isInitiator) {
         } else if (track.kind === 'video') {
             console.log('Received video track from:', peerId);
             
+            state.screenStreams.set(peerId, stream);
+            
             if (state.disabledScreens?.has(peerId)) {
                 return;
             }
             
-            let videoContainer = $(`#screen-container-${peerId}`);
-            if (!videoContainer) {
-                videoContainer = document.createElement('div');
-                videoContainer.id = `screen-container-${peerId}`;
-                videoContainer.className = 'screen-video-container';
-                
-                const participant = state.participants.get(peerId);
-                const name = participant ? participant.nickname : 'Unknown';
-                
-                const video = document.createElement('video');
-                video.className = 'screen-video';
-                video.id = `screen-video-${peerId}`;
-                video.autoplay = true;
-                video.playsInline = true;
-                video.setAttribute('playsinline', '');
-                video.setAttribute('webkit-playsinline', '');
-                video.volume = state.screenVolumes?.get(peerId) ?? 0.5;
-                
-                const label = document.createElement('div');
-                label.className = 'screen-video-label';
-                label.textContent = name;
-                
-                const controls = document.createElement('div');
-                controls.className = 'screen-video-controls';
-                controls.innerHTML = `
-                    <div class="screen-control-row">
-                        <i class="fas fa-volume-up"></i>
-                        <input type="range" class="screen-volume-slider" min="0" max="100" value="${(state.screenVolumes?.get(peerId) ?? 50)}" data-peer="${peerId}">
-                        <span class="screen-volume-value">${(state.screenVolumes?.get(peerId) ?? 50)}%</span>
-                    </div>
-                    <button class="screen-disable-btn" data-peer="${peerId}">
-                        <i class="fas fa-eye-slash"></i> Отключить демку
-                    </button>
-                `;
-                
-                videoContainer.appendChild(video);
-                videoContainer.appendChild(label);
-                videoContainer.appendChild(controls);
-                
-                video.addEventListener('click', (e) => {
-                    if (!e.target.closest('.screen-video-controls')) {
-                        toggleVideoFullscreen(videoContainer);
-                    }
-                });
-                
-                controls.querySelector('.screen-volume-slider').addEventListener('input', (e) => {
-                    e.stopPropagation();
-                    const vol = parseInt(e.target.value);
-                    const peerId = e.target.dataset.peer;
-                    const video = $(`#screen-video-${peerId}`);
-                    if (video) video.volume = vol / 100;
-                    if (!state.screenVolumes) state.screenVolumes = new Map();
-                    state.screenVolumes.set(peerId, vol);
-                    controls.querySelector('.screen-volume-value').textContent = vol + '%';
-                });
-                
-                controls.querySelector('.screen-disable-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const peerId = e.target.closest('.screen-disable-btn').dataset.peer;
-                    disableScreenShare(peerId);
-                });
-                
-                controls.addEventListener('click', e => e.stopPropagation());
-                
-                const content = $('#screen-share-content');
-                const noShare = content.querySelector('.no-screen-share');
-                if (noShare) noShare.remove();
-                content.appendChild(videoContainer);
-            }
-            
-            const video = $(`#screen-video-${peerId}`);
-            if (video) {
-                video.srcObject = stream;
-                video.play().catch(e => console.log('Video autoplay blocked:', e));
-            }
-            
-            state.screenSharers.set(peerId, state.participants.get(peerId)?.nickname || 'Unknown');
+            createScreenVideoElement(peerId, stream);
             
             track.onended = () => {
                 removeScreenVideo(peerId);
@@ -2788,6 +2715,7 @@ function removeScreenVideo(peerId) {
     }
     state.screenSharers.delete(peerId);
     state.disabledScreens.delete(peerId);
+    state.screenStreams.delete(peerId);
     
     const content = $('#screen-share-content');
     if (!content.querySelector('.screen-video-container') && !content.querySelector('.screen-disabled-notice')) {
@@ -2798,6 +2726,83 @@ function removeScreenVideo(peerId) {
             </div>
         `;
     }
+}
+
+function createScreenVideoElement(peerId, stream) {
+    let videoContainer = $(`#screen-container-${peerId}`);
+    if (videoContainer) return;
+    
+    videoContainer = document.createElement('div');
+    videoContainer.id = `screen-container-${peerId}`;
+    videoContainer.className = 'screen-video-container';
+    
+    const participant = state.participants.get(peerId);
+    const name = participant ? participant.nickname : 'Unknown';
+    
+    const video = document.createElement('video');
+    video.className = 'screen-video';
+    video.id = `screen-video-${peerId}`;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.volume = state.screenVolumes?.get(peerId) ?? 0.5;
+    
+    const label = document.createElement('div');
+    label.className = 'screen-video-label';
+    label.textContent = name;
+    
+    const controls = document.createElement('div');
+    controls.className = 'screen-video-controls';
+    controls.innerHTML = `
+        <div class="screen-control-row">
+            <i class="fas fa-volume-up"></i>
+            <input type="range" class="screen-volume-slider" min="0" max="100" value="${(state.screenVolumes?.get(peerId) ?? 50)}" data-peer="${peerId}">
+            <span class="screen-volume-value">${(state.screenVolumes?.get(peerId) ?? 50)}%</span>
+        </div>
+        <button class="screen-disable-btn" data-peer="${peerId}">
+            <i class="fas fa-eye-slash"></i> Отключить демку
+        </button>
+    `;
+    
+    videoContainer.appendChild(video);
+    videoContainer.appendChild(label);
+    videoContainer.appendChild(controls);
+    
+    video.addEventListener('click', (e) => {
+        if (!e.target.closest('.screen-video-controls')) {
+            toggleVideoFullscreen(videoContainer);
+        }
+    });
+    
+    controls.querySelector('.screen-volume-slider').addEventListener('input', (e) => {
+        e.stopPropagation();
+        const vol = parseInt(e.target.value);
+        const peerId = e.target.dataset.peer;
+        const video = $(`#screen-video-${peerId}`);
+        if (video) video.volume = vol / 100;
+        if (!state.screenVolumes) state.screenVolumes = new Map();
+        state.screenVolumes.set(peerId, vol);
+        controls.querySelector('.screen-volume-value').textContent = vol + '%';
+    });
+    
+    controls.querySelector('.screen-disable-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const peerId = e.target.closest('.screen-disable-btn').dataset.peer;
+        disableScreenShare(peerId);
+    });
+    
+    controls.addEventListener('click', e => e.stopPropagation());
+    
+    const content = $('#screen-share-content');
+    const noShare = content.querySelector('.no-screen-share');
+    if (noShare) noShare.remove();
+    content.appendChild(videoContainer);
+    
+    video.srcObject = stream;
+    video.play().catch(e => console.log('Video autoplay blocked:', e));
+    
+    state.screenSharers.set(peerId, name);
 }
 
 function disableScreenShare(peerId) {
@@ -2836,7 +2841,22 @@ window.enableScreenShare = function(peerId) {
     const notice = $(`#screen-disabled-${peerId}`);
     if (notice) notice.remove();
     
-    showNotification('Демка включена. Перезапусти демку для просмотра.');
+    const stream = state.screenStreams.get(peerId);
+    if (stream && stream.active) {
+        createScreenVideoElement(peerId, stream);
+        showNotification('Демка включена');
+    } else {
+        showNotification('Демка больше не активна');
+        const content = $('#screen-share-content');
+        if (!content.querySelector('.screen-video-container') && !content.querySelector('.screen-disabled-notice')) {
+            content.innerHTML = `
+                <div class="no-screen-share">
+                    <i class="fas fa-desktop"></i>
+                    <span>Никто не показывает экран</span>
+                </div>
+            `;
+        }
+    }
 }
 
 $('#leave-btn').addEventListener('click', () => {
