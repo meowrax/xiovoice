@@ -2326,22 +2326,63 @@ function handleWSMessage(msg) {
                 const requesterId = msg.requesterId;
                 const pc = state.peerConnections.get(requesterId);
                 if (pc) {
-                    const senders = [];
-                    state.screenStream.getTracks().forEach(track => {
-                        senders.push(pc.addTrack(track, state.screenStream));
-                    });
-                    if (!state.screenSenders) state.screenSenders = new Map();
-                    state.screenSenders.set(requesterId, senders);
-                    
-                    pc.createOffer().then(offer => {
-                        return pc.setLocalDescription(offer);
-                    }).then(() => {
-                        sendMessage({
-                            type: 'webrtc-offer',
-                            targetId: requesterId,
-                            offer: pc.localDescription
+                    const addScreenTracks = async () => {
+                        const senders = [];
+                        state.screenStream.getTracks().forEach(track => {
+                            const existingSender = pc.getSenders().find(s => s.track && s.track.kind === track.kind && s.track.id === track.id);
+                            if (!existingSender) {
+                                senders.push(pc.addTrack(track, state.screenStream));
+                            }
                         });
-                    });
+                        if (!state.screenSenders) state.screenSenders = new Map();
+                        if (senders.length > 0) {
+                            state.screenSenders.set(requesterId, senders);
+                            
+                            if (pc.signalingState === 'stable') {
+                                try {
+                                    const offer = await pc.createOffer();
+                                    await pc.setLocalDescription(offer);
+                                    sendMessage({
+                                        type: 'webrtc-offer',
+                                        targetId: requesterId,
+                                        offer: pc.localDescription
+                                    });
+                                } catch (e) {
+                                    console.error('Error creating offer for screen share:', e);
+                                }
+                            }
+                        }
+                    };
+                    
+                    if (pc.signalingState === 'stable' || pc.connectionState === 'connected') {
+                        addScreenTracks();
+                    } else {
+                        pc.addEventListener('signalingstatechange', () => {
+                            if (pc.signalingState === 'stable') {
+                                addScreenTracks();
+                            }
+                        }, { once: true });
+                    }
+                } else {
+                    setTimeout(() => {
+                        const pcRetry = state.peerConnections.get(requesterId);
+                        if (pcRetry && state.isScreenSharing && state.screenStream) {
+                            state.screenStream.getTracks().forEach(track => {
+                                pcRetry.addTrack(track, state.screenStream);
+                            });
+                            if (pcRetry.signalingState === 'stable') {
+                                pcRetry.createOffer().then(offer => {
+                                    return pcRetry.setLocalDescription(offer);
+                                }).then(() => {
+                                    sendMessage({
+                                        type: 'webrtc-offer',
+                                        targetId: requesterId,
+                                        offer: pcRetry.localDescription
+                                    });
+                                });
+                            }
+                        }
+                    }, 2000);
                 }
             }
             break;
@@ -2570,6 +2611,23 @@ async function handleOffer(senderId, offer) {
     if (!pc) {
         await createPeerConnection(senderId, false);
         pc = state.peerConnections.get(senderId);
+    }
+    
+    if (state.isScreenSharing && state.screenStream && pc) {
+        const hasScreenTracks = Array.from(pc.getSenders()).some(sender => 
+            sender.track && state.screenStream.getTracks().some(t => t.id === sender.track.id)
+        );
+        
+        if (!hasScreenTracks) {
+            state.screenStream.getTracks().forEach(track => {
+                pc.addTrack(track, state.screenStream);
+            });
+            if (!state.screenSenders) state.screenSenders = new Map();
+            const senders = Array.from(pc.getSenders()).filter(s => 
+                s.track && state.screenStream.getTracks().some(t => t.id === s.track.id)
+            );
+            state.screenSenders.set(senderId, senders);
+        }
     }
     
     try {
