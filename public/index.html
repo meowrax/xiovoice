@@ -453,6 +453,38 @@ html, body {
     font-size: 0.85rem;
     color: var(--accent);
     position: relative;
+    flex-shrink: 0;
+}
+
+.participant-avatar.my-avatar {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.participant-avatar.my-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(76, 217, 100, 0.4);
+}
+
+.participant-avatar.my-avatar:hover .avatar-edit-hint {
+    opacity: 1;
+}
+
+.avatar-edit-hint {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    color: var(--bg-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .participant-avatar.speaking {
@@ -1232,7 +1264,273 @@ html, body {
     opacity: 0;
     transition: all 0.3s ease;
     z-index: 1500;
+}
+
+.limit-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.limit-modal.show {
+    display: flex;
+}
+
+.limit-modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.limit-modal-content i.fa-exclamation-triangle {
+    font-size: 3rem;
+    color: #ff6b6b;
+    margin-bottom: 15px;
+}
+
+.limit-modal-content h3 {
+    color: var(--text);
+    margin-bottom: 10px;
+    font-size: 1.3rem;
+}
+
+.limit-modal-content p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.tg-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #0088cc;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+.tg-link:hover {
+    background: #006699;
+    transform: scale(1.05);
+}
+
+.tg-link i {
+    font-size: 1.3rem;
+}
+
+.close-modal-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.close-modal-btn:hover {
+    background: var(--border);
+    color: var(--text);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.welcome-banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 1800;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(76, 217, 100, 0.2);
+    max-width: 420px;
+    width: 90%;
+    animation: bannerAppear 0.5s ease;
+    transition: all 0.5s ease;
+}
+
+@keyframes bannerAppear {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.welcome-banner.minimized {
+    top: 80px;
+    left: auto;
+    right: 20px;
+    transform: translate(0, 0) scale(0.6);
+    padding: 12px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    max-width: 200px;
+    animation: bannerMinimize 0.5s ease;
+}
+
+@keyframes bannerMinimize {
+    from {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+        top: 80px;
+        right: 20px;
+        transform: translate(0, 0) scale(0.6);
+    }
+}
+
+.welcome-banner.minimized .banner-content,
+.welcome-banner.minimized .banner-actions {
+    display: none;
+}
+
+.welcome-banner.minimized .banner-mini {
+    display: flex;
+}
+
+.banner-mini {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.banner-mini i {
+    font-size: 1.1rem;
+}
+
+.welcome-banner .banner-icon {
+    font-size: 3rem;
+    color: var(--accent);
+    margin-bottom: 15px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.welcome-banner h3 {
+    color: var(--text);
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.welcome-banner p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.banner-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.banner-tg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #0088cc 0%, #006699 100%);
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.banner-tg-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 136, 204, 0.4);
+}
+
+.banner-tg-btn i {
+    font-size: 1.3rem;
+}
+
+.banner-minimize-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.banner-minimize-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text);
+}
+
+.banner-timer {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .welcome-banner.minimized {
+        top: auto;
+        bottom: 100px;
+        right: 15px;
+        left: auto;
+        transform: scale(0.7);
+    }
+    
+    .welcome-banner {
+        padding: 25px 20px;
+        max-width: 350px;
+    }
+    
+    .welcome-banner h3 {
+        font-size: 1.2rem;
+    }
+    
+    .welcome-banner p {
+        font-size: 0.9rem;
+    }
 }
 
 .notification.show {
@@ -1900,6 +2198,7 @@ html, body {
                                 <textarea class="chat-input" id="chat-input" placeholder="Написать сообщение..." rows="1"></textarea>
                                 <div class="input-actions">
                                     <input type="file" id="image-input" accept="image/*" hidden>
+                                    <input type="file" id="avatar-input" accept="image/*" hidden>
                                     <button class="input-action-btn" onclick="document.getElementById('image-input').click()" title="Прикрепить изображение">
                                         <i class="fas fa-image"></i>
                                     </button>
@@ -1953,6 +2252,41 @@ html, body {
 <div class="notification" id="notification">
     <i class="fas fa-check-circle"></i>
     <span id="notification-text"></span>
+</div>
+
+<div class="limit-modal" id="limit-modal">
+    <div class="limit-modal-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Лимит комнат</h3>
+        <p>Достигнут лимит активных комнат. Попробуйте позже или напишите нам:</p>
+        <a href="https://t.me/Xio666Xio" target="_blank" class="tg-link">
+            <i class="fab fa-telegram"></i>
+            Написать в Telegram
+        </a>
+        <button class="close-modal-btn" onclick="closeLimitModal()">Закрыть</button>
+    </div>
+</div>
+
+<div class="welcome-banner" id="welcome-banner" style="display: none;">
+    <div class="banner-content">
+        <i class="fab fa-telegram banner-icon"></i>
+        <h3>Добро пожаловать!</h3>
+        <p>Есть идеи, предложения или нашли баг? Напишите мне — помогу и всё исправлю!</p>
+    </div>
+    <div class="banner-actions">
+        <a href="https://t.me/Xio666Xio" target="_blank" class="banner-tg-btn">
+            <i class="fab fa-telegram"></i>
+            Написать в Telegram
+        </a>
+        <button class="banner-minimize-btn" onclick="minimizeBanner()">
+            <i class="fas fa-compress-alt"></i> Свернуть
+        </button>
+    </div>
+    <div class="banner-mini" onclick="expandBanner()">
+        <i class="fab fa-telegram"></i>
+        <span>Связаться</span>
+    </div>
+    <span class="banner-timer" id="banner-timer"></span>
 </div>
 
 <script>
@@ -2097,11 +2431,11 @@ function showScreen(screen) {
 
 async function checkRoom() {
     try {
-        const res = await fetch(`/api/room/${state.roomId}`);
+        const res = await fetch(`/x/r/${state.roomId}`);
         const data = await res.json();
         
-        if (data.exists) {
-            $('#room-participant-count').textContent = data.participantCount;
+        if (data.e) {
+            $('#room-participant-count').textContent = data.p;
             showScreen(nicknameScreen);
         } else {
             showNotification('Комната не найдена', true);
@@ -2115,26 +2449,30 @@ async function checkRoom() {
 
 $('#create-room-btn').addEventListener('click', async () => {
     try {
-        const tokenRes = await fetch('/api/csrf-token');
+        const tokenRes = await fetch('/x/t');
         const tokenData = await tokenRes.json();
         
         await new Promise(r => setTimeout(r, 1100));
         
-        const res = await fetch('/api/create-room', { 
+        const res = await fetch('/x/c', { 
             method: 'POST',
             headers: {
-                'X-CSRF-Token': tokenData.token
+                'X-T': tokenData.d
             }
         });
         const data = await res.json();
         
         if (!res.ok) {
-            showNotification(data.message || 'Ошибка создания комнаты', true);
+            if (data.limit) {
+                showLimitModal();
+            } else {
+                showNotification('Ошибка создания комнаты', true);
+            }
             return;
         }
         
-        state.roomId = data.roomId;
-        const link = window.location.origin + data.link;
+        state.roomId = data.r;
+        const link = window.location.origin + data.l;
         $('#room-link').textContent = link;
         $('#generated-link').classList.add('show');
         
@@ -2270,6 +2608,8 @@ function handleWSMessage(msg) {
                     createPeerConnection(p.id, true);
                 }
             });
+            
+            setTimeout(() => showWelcomeBanner(), 500);
             break;
             
         case 'user-joined':
@@ -2313,6 +2653,14 @@ function handleWSMessage(msg) {
             
         case 'user-deafen-changed':
             updateParticipantDeafen(msg.clientId, msg.isDeafened);
+            break;
+        
+        case 'user-avatar-changed':
+            const participant = state.participants.get(msg.clientId);
+            if (participant) {
+                participant.avatar = msg.avatar;
+                updateParticipantList();
+            }
             break;
             
         case 'screen-share-started':
@@ -2383,10 +2731,14 @@ function updateParticipantList() {
         const isScreening = p.isScreenSharing || false;
         const volume = state.userVolumes?.get(p.id) ?? 100;
         
+        const avatarStyle = p.avatar ? `background-image: url(${p.avatar}); background-size: cover;` : '';
+        const avatarText = p.avatar ? '' : p.nickname[0].toUpperCase();
+        
         item.innerHTML = `
-            <div class="participant-avatar ${isMe ? '' : ''}" id="avatar-${p.id}">
-                ${p.nickname[0].toUpperCase()}
+            <div class="participant-avatar ${isMe ? 'my-avatar' : ''}" id="avatar-${p.id}" style="${avatarStyle}" ${isMe ? 'onclick="openAvatarPicker()"' : ''}>
+                ${avatarText}
                 <div class="participant-status"></div>
+                ${isMe ? '<div class="avatar-edit-hint"><i class="fas fa-camera"></i></div>' : ''}
             </div>
             <div class="participant-info">
                 <div class="participant-name">${p.nickname}${isMe ? ' (ты)' : ''}</div>
@@ -3185,6 +3537,140 @@ function showNotification(text, isError = false) {
     notif.classList.add('show');
     
     setTimeout(() => notif.classList.remove('show'), 3000);
+}
+
+function showLimitModal() {
+    $('#limit-modal').classList.add('show');
+}
+
+function closeLimitModal() {
+    $('#limit-modal').classList.remove('show');
+}
+
+let bannerTimer = null;
+let bannerCountdown = 30;
+
+function showWelcomeBanner() {
+    const banner = $('#welcome-banner');
+    banner.style.display = 'block';
+    banner.classList.remove('minimized');
+    bannerCountdown = 30;
+    updateBannerTimer();
+    
+    if (bannerTimer) clearInterval(bannerTimer);
+    bannerTimer = setInterval(() => {
+        bannerCountdown--;
+        updateBannerTimer();
+        if (bannerCountdown <= 0) {
+            minimizeBanner();
+            clearInterval(bannerTimer);
+        }
+    }, 1000);
+}
+
+function updateBannerTimer() {
+    const timerEl = $('#banner-timer');
+    if (timerEl && !$('#welcome-banner').classList.contains('minimized')) {
+        timerEl.textContent = `${bannerCountdown}с`;
+    } else if (timerEl) {
+        timerEl.textContent = '';
+    }
+}
+
+function minimizeBanner() {
+    const banner = $('#welcome-banner');
+    banner.classList.add('minimized');
+    if (bannerTimer) {
+        clearInterval(bannerTimer);
+        bannerTimer = null;
+    }
+    $('#banner-timer').textContent = '';
+}
+
+function expandBanner() {
+    const banner = $('#welcome-banner');
+    banner.classList.remove('minimized');
+    bannerCountdown = 15;
+    updateBannerTimer();
+    
+    if (bannerTimer) clearInterval(bannerTimer);
+    bannerTimer = setInterval(() => {
+        bannerCountdown--;
+        updateBannerTimer();
+        if (bannerCountdown <= 0) {
+            minimizeBanner();
+            clearInterval(bannerTimer);
+        }
+    }, 1000);
+}
+
+function openAvatarPicker() {
+    $('#avatar-input').click();
+}
+
+$('#avatar-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showNotification('Выберите изображение', true);
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showNotification('Максимальный размер 5МБ', true);
+        return;
+    }
+    
+    try {
+        const avatar = await compressAvatar(file);
+        
+        state.ws.send(JSON.stringify({
+            type: 'update-avatar',
+            avatar: avatar
+        }));
+        
+        const me = state.participants.get(state.clientId);
+        if (me) {
+            me.avatar = avatar;
+            updateParticipantList();
+        }
+        
+        showNotification('Аватарка обновлена!');
+    } catch (err) {
+        showNotification('Ошибка загрузки аватарки', true);
+    }
+    
+    e.target.value = '';
+});
+
+async function compressAvatar(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const size = 128;
+                canvas.width = size;
+                canvas.height = size;
+                
+                const ctx = canvas.getContext('2d');
+                
+                const minDim = Math.min(img.width, img.height);
+                const sx = (img.width - minDim) / 2;
+                const sy = (img.height - minDim) / 2;
+                
+                ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+                
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 document.addEventListener('keydown', e => {
