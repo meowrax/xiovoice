@@ -17,6 +17,13 @@ const RATE_LIMIT_MAX_REQUESTS = 3;
 const MAX_ROOMS = 5;
 const EMPTY_ROOM_TIMEOUT = 10 * 60 * 1000;
 
+const GLOBAL_ROOM_LIMIT_WINDOW = 3600000;
+const GLOBAL_MAX_ROOMS_PER_HOUR = 10;
+let globalRoomCreations = [];
+
+const csrfTokens = new Map();
+const CSRF_TOKEN_LIFETIME = 300000;
+
 const suspiciousIPs = new Set();
 
 function getClientIP(req) {
@@ -58,21 +65,19 @@ function checkRateLimit(ip) {
 
 function isValidRequest(req) {
     const ua = req.headers['user-agent'] || '';
-    const referer = req.headers['referer'] || '';
     const origin = req.headers['origin'] || '';
+    const secFetchSite = req.headers['sec-fetch-site'] || '';
+    const secFetchMode = req.headers['sec-fetch-mode'] || '';
     
     const validBrowsers = ['Mozilla', 'Chrome', 'Safari', 'Firefox', 'Edge', 'Opera'];
     const hasValidUA = validBrowsers.some(browser => ua.includes(browser));
     
     const validOrigin = origin.includes('xiovoice.onrender.com') || 
-                       origin.includes('localhost') || 
-                       origin === '';
+                       origin.includes('localhost');
     
-    const validReferer = referer.includes('xiovoice.onrender.com') || 
-                        referer.includes('localhost') || 
-                        referer === '';
+    const validSecFetch = secFetchSite === 'same-origin' && secFetchMode === 'cors';
     
-    return hasValidUA && (validOrigin || validReferer);
+    return hasValidUA && validOrigin && validSecFetch;
 }
 
 setInterval(() => {
@@ -97,8 +102,46 @@ app.get('/room/:roomId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/api/csrf-token', (req, res) => {
+    const token = uuidv4();
+    const ip = getClientIP(req);
+    csrfTokens.set(token, { ip, createdAt: Date.now() });
+    
+    setTimeout(() => csrfTokens.delete(token), CSRF_TOKEN_LIFETIME);
+    
+    res.json({ token });
+});
+
 app.post('/api/create-room', (req, res) => {
     const ip = getClientIP(req);
+    const csrfToken = req.headers['x-csrf-token'];
+    
+    if (!csrfToken || !csrfTokens.has(csrfToken)) {
+        return res.status(403).json({ 
+            error: 'Invalid token', 
+            message: 'Недействительный токен. Обновите страницу.' 
+        });
+    }
+    
+    const tokenData = csrfTokens.get(csrfToken);
+    csrfTokens.delete(csrfToken);
+    
+    const tokenAge = Date.now() - tokenData.createdAt;
+    
+    if (tokenAge > CSRF_TOKEN_LIFETIME) {
+        return res.status(403).json({ 
+            error: 'Token expired', 
+            message: 'Токен истёк. Обновите страницу.' 
+        });
+    }
+    
+    if (tokenAge < 1000) {
+        suspiciousIPs.add(ip);
+        return res.status(403).json({ 
+            error: 'Too fast', 
+            message: 'Слишком быстрый запрос. Попробуйте снова.' 
+        });
+    }
     
     if (!isValidRequest(req)) {
         suspiciousIPs.add(ip);
@@ -121,6 +164,18 @@ app.post('/api/create-room', (req, res) => {
             message: `Достигнут лимит комнат (${MAX_ROOMS}). Попробуйте позже.` 
         });
     }
+    
+    const now = Date.now();
+    globalRoomCreations = globalRoomCreations.filter(t => now - t < GLOBAL_ROOM_LIMIT_WINDOW);
+    
+    if (globalRoomCreations.length >= GLOBAL_MAX_ROOMS_PER_HOUR) {
+        return res.status(429).json({ 
+            error: 'Global limit reached', 
+            message: 'Слишком много комнат создано за последний час. Попробуйте позже.' 
+        });
+    }
+    
+    globalRoomCreations.push(now);
     
     const roomId = uuidv4().slice(0, 8);
     const adminKey = uuidv4().slice(0, 12);
