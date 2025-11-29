@@ -11,6 +11,79 @@ const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 const clients = new Map();
 
+const rateLimit = new Map();
+const RATE_LIMIT_WINDOW = 60000;
+const RATE_LIMIT_MAX_REQUESTS = 3;
+
+const suspiciousIPs = new Set();
+
+function getClientIP(req) {
+    return req.headers['cf-connecting-ip'] || 
+           req.headers['x-forwarded-for']?.split(',')[0] || 
+           req.headers['x-real-ip'] || 
+           req.connection.remoteAddress || 
+           req.socket.remoteAddress || 
+           'unknown';
+}
+
+function checkRateLimit(ip) {
+    if (suspiciousIPs.has(ip)) {
+        return false;
+    }
+    
+    const now = Date.now();
+    const record = rateLimit.get(ip);
+    
+    if (!record) {
+        rateLimit.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return true;
+    }
+    
+    if (now > record.resetTime) {
+        rateLimit.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return true;
+    }
+    
+    if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+        suspiciousIPs.add(ip);
+        setTimeout(() => suspiciousIPs.delete(ip), 3600000);
+        return false;
+    }
+    
+    record.count++;
+    return true;
+}
+
+function isValidRequest(req) {
+    const ua = req.headers['user-agent'] || '';
+    const referer = req.headers['referer'] || '';
+    const origin = req.headers['origin'] || '';
+    
+    const validBrowsers = ['Mozilla', 'Chrome', 'Safari', 'Firefox', 'Edge', 'Opera'];
+    const hasValidUA = validBrowsers.some(browser => ua.includes(browser));
+    
+    const validOrigin = origin.includes('xiovoice.onrender.com') || 
+                       origin.includes('localhost') || 
+                       origin === '';
+    
+    const validReferer = referer.includes('xiovoice.onrender.com') || 
+                        referer.includes('localhost') || 
+                        referer === '';
+    
+    return hasValidUA && (validOrigin || validReferer);
+}
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of rateLimit.entries()) {
+        if (now > record.resetTime) {
+            rateLimit.delete(ip);
+        }
+    }
+}, RATE_LIMIT_WINDOW);
+
+app.set('trust proxy', true);
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '50mb' }));
 
@@ -23,6 +96,23 @@ app.get('/room/:roomId', (req, res) => {
 });
 
 app.post('/api/create-room', (req, res) => {
+    const ip = getClientIP(req);
+    
+    if (!isValidRequest(req)) {
+        suspiciousIPs.add(ip);
+        return res.status(403).json({ 
+            error: 'Forbidden', 
+            message: 'Недопустимый запрос' 
+        });
+    }
+    
+    if (!checkRateLimit(ip)) {
+        return res.status(429).json({ 
+            error: 'Too many requests', 
+            message: 'Превышен лимит запросов. Попробуйте позже.' 
+        });
+    }
+    
     const roomId = uuidv4().slice(0, 8);
     const adminKey = uuidv4().slice(0, 12);
     
