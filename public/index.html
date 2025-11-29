@@ -1307,8 +1307,20 @@ html, body {
 
 .limit-modal-content p {
     color: var(--text-secondary);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     font-size: 0.95rem;
+}
+
+.limit-modal-content p#error-modal-text {
+    color: var(--text);
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.error-help-text {
+    color: var(--text-muted) !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 15px !important;
 }
 
 .tg-link {
@@ -2254,16 +2266,17 @@ html, body {
     <span id="notification-text"></span>
 </div>
 
-<div class="limit-modal" id="limit-modal">
+<div class="limit-modal" id="error-modal">
     <div class="limit-modal-content">
         <i class="fas fa-exclamation-triangle"></i>
-        <h3>Лимит комнат</h3>
-        <p>Достигнут лимит активных комнат. Попробуйте позже или напишите нам:</p>
+        <h3>Упс, ошибочка!</h3>
+        <p id="error-modal-text">Что-то пошло не так...</p>
+        <p class="error-help-text">Напишите нам для решения проблемы:</p>
         <a href="https://t.me/Xio666Xio" target="_blank" class="tg-link">
             <i class="fab fa-telegram"></i>
             Написать в Telegram
         </a>
-        <button class="close-modal-btn" onclick="closeLimitModal()">Закрыть</button>
+        <button class="close-modal-btn" onclick="closeErrorModal()">Закрыть</button>
     </div>
 </div>
 
@@ -2507,6 +2520,15 @@ async function joinRoom() {
     state.nickname = nicknameInput.value.trim();
     if (!state.nickname || !state.roomId) return;
     
+    state.isMuted = true;
+    state.localStream = null;
+    
+    connectWebSocket();
+}
+
+async function requestMicrophone() {
+    if (state.localStream) return true;
+    
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     
@@ -2550,7 +2572,7 @@ async function joinRoom() {
     
     if (!streamObtained) {
         showNotification('Нет доступа к микрофону. Проверь разрешения.', true);
-        return;
+        return false;
     }
     
     if (isMobile && !isIOS) {
@@ -2561,7 +2583,13 @@ async function joinRoom() {
         }
     }
     
-    connectWebSocket();
+    for (const [peerId, pc] of state.peerConnections) {
+        state.localStream.getTracks().forEach(track => {
+            pc.addTrack(track, state.localStream);
+        });
+    }
+    
+    return true;
 }
 
 function connectWebSocket() {
@@ -2679,6 +2707,10 @@ function setupUI() {
     $('#my-name').textContent = state.nickname;
     $('#my-key').textContent = state.userKey;
     updateParticipantList();
+    
+    const muteBtn = $('#mute-btn');
+    muteBtn.classList.add('active');
+    muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
     
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -2937,9 +2969,15 @@ function closePeerConnection(peerId) {
     if (audio) audio.remove();
 }
 
-$('#mute-btn').addEventListener('click', () => {
-    state.isMuted = !state.isMuted;
+$('#mute-btn').addEventListener('click', async () => {
     const btn = $('#mute-btn');
+    
+    if (state.isMuted) {
+        const hasAccess = await requestMicrophone();
+        if (!hasAccess) return;
+    }
+    
+    state.isMuted = !state.isMuted;
     
     if (state.localStream) {
         state.localStream.getAudioTracks().forEach(track => {
@@ -2950,10 +2988,12 @@ $('#mute-btn').addEventListener('click', () => {
     btn.classList.toggle('active', state.isMuted);
     btn.innerHTML = state.isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
     
-    state.ws.send(JSON.stringify({
-        type: 'toggle-mute',
-        isMuted: state.isMuted
-    }));
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({
+            type: 'toggle-mute',
+            isMuted: state.isMuted
+        }));
+    }
 });
 
 $('#deafen-btn').addEventListener('click', () => {
@@ -3531,21 +3571,33 @@ document.addEventListener('keydown', (e) => {
 });
 
 function showNotification(text, isError = false) {
+    if (isError) {
+        showErrorModal(text);
+        return;
+    }
+    
     const notif = $('#notification');
     $('#notification-text').textContent = text;
-    notif.className = 'notification' + (isError ? ' error' : '');
+    notif.className = 'notification';
     notif.classList.add('show');
     
     setTimeout(() => notif.classList.remove('show'), 3000);
 }
 
-function showLimitModal() {
-    $('#limit-modal').classList.add('show');
+function showErrorModal(text) {
+    $('#error-modal-text').textContent = text;
+    $('#error-modal').classList.add('show');
 }
 
-function closeLimitModal() {
-    $('#limit-modal').classList.remove('show');
+window.closeErrorModal = function() {
+    $('#error-modal').classList.remove('show');
 }
+
+function showLimitModal() {
+    $('#error-modal-text').textContent = 'Достигнут лимит активных комнат. Попробуйте позже.';
+    $('#error-modal').classList.add('show');
+}
+
 
 let bannerTimer = null;
 let bannerCountdown = 30;
@@ -3577,7 +3629,7 @@ function updateBannerTimer() {
     }
 }
 
-function minimizeBanner() {
+window.minimizeBanner = function() {
     const banner = $('#welcome-banner');
     banner.classList.add('minimized');
     if (bannerTimer) {
@@ -3587,7 +3639,7 @@ function minimizeBanner() {
     $('#banner-timer').textContent = '';
 }
 
-function expandBanner() {
+window.expandBanner = function() {
     const banner = $('#welcome-banner');
     banner.classList.remove('minimized');
     bannerCountdown = 15;
@@ -3598,13 +3650,13 @@ function expandBanner() {
         bannerCountdown--;
         updateBannerTimer();
         if (bannerCountdown <= 0) {
-            minimizeBanner();
+            window.minimizeBanner();
             clearInterval(bannerTimer);
         }
     }, 1000);
 }
 
-function openAvatarPicker() {
+window.openAvatarPicker = function() {
     $('#avatar-input').click();
 }
 
