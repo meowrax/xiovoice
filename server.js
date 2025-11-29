@@ -14,6 +14,8 @@ const clients = new Map();
 const rateLimit = new Map();
 const RATE_LIMIT_WINDOW = 60000;
 const RATE_LIMIT_MAX_REQUESTS = 3;
+const MAX_ROOMS = 5;
+const EMPTY_ROOM_TIMEOUT = 10 * 60 * 1000;
 
 const suspiciousIPs = new Set();
 
@@ -113,6 +115,13 @@ app.post('/api/create-room', (req, res) => {
         });
     }
     
+    if (rooms.size >= MAX_ROOMS) {
+        return res.status(503).json({ 
+            error: 'Room limit reached', 
+            message: `Достигнут лимит комнат (${MAX_ROOMS}). Попробуйте позже.` 
+        });
+    }
+    
     const roomId = uuidv4().slice(0, 8);
     const adminKey = uuidv4().slice(0, 12);
     
@@ -120,6 +129,7 @@ app.post('/api/create-room', (req, res) => {
         id: roomId,
         adminKey: adminKey,
         createdAt: Date.now(),
+        lastEmptyTime: Date.now(),
         participants: new Map(),
         messages: []
     });
@@ -180,6 +190,11 @@ wss.on('connection', (ws) => {
             const room = rooms.get(client.roomId);
             if (room) {
                 room.participants.delete(clientId);
+                
+                if (room.participants.size === 0) {
+                    room.lastEmptyTime = Date.now();
+                }
+                
                 broadcast(client.roomId, {
                     type: 'user-left',
                     clientId,
@@ -224,6 +239,8 @@ function handleMessage(clientId, message) {
                 isDeafened: false,
                 isScreenSharing: false
             });
+            
+            room.lastEmptyTime = null;
             
             sendToClient(clientId, {
                 type: 'joined',
@@ -382,14 +399,15 @@ function handleMessage(clientId, message) {
 
 setInterval(() => {
     const now = Date.now();
-    const maxAge = 24 * 60 * 60 * 1000;
     
     rooms.forEach((room, roomId) => {
-        if (room.participants.size === 0 && now - room.createdAt > maxAge) {
+        if (room.participants.size === 0 && room.lastEmptyTime && 
+            now - room.lastEmptyTime > EMPTY_ROOM_TIMEOUT) {
             rooms.delete(roomId);
+            console.log(`Room ${roomId} deleted (empty for 10 minutes)`);
         }
     });
-}, 60 * 60 * 1000);
+}, 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
