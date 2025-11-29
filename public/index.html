@@ -2115,7 +2115,17 @@ async function checkRoom() {
 
 $('#create-room-btn').addEventListener('click', async () => {
     try {
-        const res = await fetch('/api/create-room', { method: 'POST' });
+        const tokenRes = await fetch('/api/csrf-token');
+        const tokenData = await tokenRes.json();
+        
+        await new Promise(r => setTimeout(r, 1100));
+        
+        const res = await fetch('/api/create-room', { 
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': tokenData.token
+            }
+        });
         const data = await res.json();
         
         if (!res.ok) {
