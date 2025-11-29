@@ -2521,7 +2521,18 @@ async function joinRoom() {
     if (!state.nickname || !state.roomId) return;
     
     state.isMuted = true;
-    state.localStream = null;
+    
+    const hasAccess = await requestMicrophone();
+    if (!hasAccess) {
+        showNotification('Нет доступа к микрофону. Проверь разрешения.', true);
+        return;
+    }
+    
+    if (state.localStream) {
+        state.localStream.getAudioTracks().forEach(track => {
+            track.enabled = false;
+        });
+    }
     
     connectWebSocket();
 }
@@ -2975,6 +2986,32 @@ $('#mute-btn').addEventListener('click', async () => {
     if (state.isMuted) {
         const hasAccess = await requestMicrophone();
         if (!hasAccess) return;
+        
+        if (state.localStream) {
+            for (const [peerId, pc] of state.peerConnections) {
+                const existingTracks = pc.getSenders().filter(sender => 
+                    sender.track && sender.track.kind === 'audio'
+                );
+                
+                if (existingTracks.length === 0) {
+                    state.localStream.getAudioTracks().forEach(track => {
+                        pc.addTrack(track, state.localStream);
+                    });
+                    
+                    try {
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        state.ws.send(JSON.stringify({
+                            type: 'webrtc-offer',
+                            targetId: peerId,
+                            offer: pc.localDescription
+                        }));
+                    } catch (e) {
+                        console.error('Error renegotiating:', e);
+                    }
+                }
+            }
+        }
     }
     
     state.isMuted = !state.isMuted;

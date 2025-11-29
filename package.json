@@ -1,21 +1,3671 @@
-{
-  "name": "frends-voice",
-  "version": "1.0.0",
-  "description": "Voice chat for friends",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "build": "node build.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "uuid": "^9.0.1",
-    "ws": "^8.14.2"
-  },
-  "devDependencies": {
-    "html-minifier-terser": "^7.2.0",
-    "javascript-obfuscator": "^4.1.1",
-    "terser": "^5.44.1"
-  }
-}
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+        <title>XioEbetVoice</title>
+        <link rel="icon" href="data:,">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@300;400;600;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            :root {
+                --bg-primary: #0a0a0a;
+                --bg-secondary: #111111;
+                --bg-tertiary: #1a1a1a;
+                --bg-hover: #222222;
+                --accent: #4fffa6;
+                --accent-dim: rgba(79, 255, 166, 0.15);
+                --accent-glow: rgba(79, 255, 166, 0.3);
+                --danger: #ff4757;
+                --warning: #ffa502;
+                --text-primary: #ffffff;
+                --text-secondary: rgba(255, 255, 255, 0.6);
+                --text-muted: rgba(255, 255, 255, 0.3);
+                --border: rgba(255, 255, 255, 0.08);
+                --border-hover: rgba(255, 255, 255, 0.15);
+                --noise-bg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent
+            }
+
+            :focus {
+                outline: 0
+            }
+
+            :focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 2px
+            }
+
+            a,button,input,select,textarea {
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: rgba(79,255,166,0.2)
+            }
+
+            .btn:active,button:active {
+                transform: scale(.98)
+            }
+
+            body,html {
+                height: 100%;
+                width: 100%;
+                overflow: hidden;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                font-family: Outfit,sans-serif;
+                -webkit-overflow-scrolling: touch;
+                padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+                touch-action: pan-y pinch-zoom;
+                -webkit-touch-callout: none
+            }
+
+            ::-webkit-scrollbar {
+                width: 6px
+            }
+
+            ::-webkit-scrollbar-track {
+                background: 0 0
+            }
+
+            ::-webkit-scrollbar-thumb {
+                background: var(--border);
+                border-radius: 3px
+            }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: var(--border-hover)
+            }
+
+            .noise-overlay {
+                display: none
+            }
+
+            #loading-screen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: radial-gradient(ellipse at 50% 30%,#111 0,#000 100%);
+                transition: opacity .8s cubic-bezier(.16, 1, .3, 1),transform .8s cubic-bezier(.16, 1, .3, 1)
+            }
+
+            .loading-grid {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image: linear-gradient(rgba(79,255,166,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,255,166,.03) 1px,transparent 1px);
+                background-size: 60px 60px;
+                animation: gridMove 20s linear infinite
+            }
+
+            .loading-corners {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none
+            }
+
+            .loading-corner {
+                position: absolute;
+                width: 50px;
+                height: 50px;
+                border: 1px solid rgba(79,255,166,.1)
+            }
+
+            .loading-corner-tl {
+                top: 30px;
+                left: 30px;
+                border-right: none;
+                border-bottom: none;
+                animation: cornerFade 2s ease-out .3s both
+            }
+
+            .loading-corner-tr {
+                top: 30px;
+                right: 30px;
+                border-left: none;
+                border-bottom: none;
+                animation: cornerFade 2s ease-out .5s both
+            }
+
+            .loading-corner-bl {
+                bottom: 30px;
+                left: 30px;
+                border-right: none;
+                border-top: none;
+                animation: cornerFade 2s ease-out .7s both
+            }
+
+            .loading-corner-br {
+                bottom: 30px;
+                right: 30px;
+                border-left: none;
+                border-top: none;
+                animation: cornerFade 2s ease-out .9s both
+            }
+
+            .loading-content {
+                position: relative;
+                z-index: 10;
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 50px;
+                animation: fadeUp 1s cubic-bezier(.2,.8,.2,1)
+            }
+
+            .loading-logo-wrapper {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px
+            }
+
+            .loading-logo {
+                font-family: Montserrat,sans-serif;
+                font-size: clamp(2.5rem, 8vw, 4rem);
+                font-weight: 900;
+                background: linear-gradient(180deg,#4fffa6 0,rgba(79,255,166,.3) 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                text-transform: uppercase;
+                letter-spacing: 6px;
+                animation: logoGlow 3s ease-in-out infinite;
+                text-shadow: 0 0 40px rgba(79,255,166,.2)
+            }
+
+            .loading-tagline {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .75rem;
+                color: var(--text-muted);
+                letter-spacing: 4px;
+                text-transform: uppercase
+            }
+
+            .loading-progress-wrapper {
+                width: 300px;
+                max-width: 80vw;
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                align-items: center
+            }
+
+            .loading-progress-container {
+                width: 100%;
+                height: 3px;
+                background: rgba(79,255,166,.1);
+                border-radius: 3px;
+                overflow: hidden;
+                position: relative
+            }
+
+            .loading-progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg,var(--accent),rgba(79,255,166,.7));
+                border-radius: 3px;
+                width: 0%;
+                transition: width .1s linear;
+                box-shadow: 0 0 20px var(--accent-glow);
+                position: relative
+            }
+
+            .loading-progress-bar::after {
+                content: '';
+                position: absolute;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 6px;
+                height: 6px;
+                background: var(--accent);
+                border-radius: 50%;
+                box-shadow: 0 0 10px var(--accent)
+            }
+
+            .loading-percent {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .8rem;
+                color: var(--accent);
+                letter-spacing: 2px
+            }
+
+            #app-screen,#home-screen,#nickname-screen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg-primary);
+                transition: opacity .5s ease,transform .5s ease;
+                z-index: 100;
+                touch-action: manipulation
+            }
+
+            .home-card,.nickname-card {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 420px;
+                width: 90%;
+                text-align: center;
+                animation: slideUp .6s cubic-bezier(.2,.8,.2,1);
+                position: relative;
+                overflow: hidden;
+                z-index: 10;
+                touch-action: manipulation
+            }
+
+            .home-card::before,.nickname-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: linear-gradient(90deg,transparent,var(--accent-glow),transparent)
+            }
+
+            .card-logo {
+                font-family: Montserrat,sans-serif;
+                font-size: 2rem;
+                font-weight: 900;
+                color: var(--accent);
+                letter-spacing: 3px;
+                margin-bottom: 10px
+            }
+
+            .card-subtitle {
+                font-size: .85rem;
+                color: var(--text-secondary);
+                margin-bottom: 30px
+            }
+
+            .btn {
+                width: 100%;
+                padding: 14px 20px;
+                border: none;
+                border-radius: 12px;
+                font-family: Outfit,sans-serif;
+                font-size: .9rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all .3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: rgba(79,255,166,0.3);
+                user-select: none;
+                position: relative;
+                z-index: 10
+            }
+
+            .btn-primary {
+                background: var(--accent);
+                color: var(--bg-primary)
+            }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 30px var(--accent-glow)
+            }
+
+            .btn-secondary {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+                border: 1px solid var(--border);
+                margin-top: 12px
+            }
+
+            .btn-secondary:hover {
+                background: var(--bg-hover);
+                border-color: var(--border-hover)
+            }
+
+            .generated-link {
+                display: none;
+                margin-top: 25px;
+                padding: 20px;
+                background: var(--bg-tertiary);
+                border-radius: 12px;
+                border: 1px solid var(--border)
+            }
+
+            .generated-link.show {
+                display: block;
+                animation: fadeIn .3s ease
+            }
+
+            .link-label {
+                font-size: .75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 10px
+            }
+
+            .link-value {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .85rem;
+                color: var(--accent);
+                word-break: break-all;
+                padding: 12px;
+                background: var(--bg-primary);
+                border-radius: 8px;
+                margin-bottom: 15px;
+                cursor: pointer;
+                transition: all .2s ease
+            }
+
+            .link-value:hover {
+                background: var(--bg-hover)
+            }
+
+            .link-actions {
+                display: flex;
+                gap: 10px
+            }
+
+            .link-actions .btn {
+                flex: 1;
+                padding: 10px;
+                font-size: .8rem
+            }
+
+            .input-group {
+                margin-bottom: 20px
+            }
+
+            .input-label {
+                display: block;
+                font-size: .75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 8px;
+                text-align: left
+            }
+
+            .input-field {
+                width: 100%;
+                padding: 14px 16px;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                color: var(--text-primary);
+                font-family: Outfit,sans-serif;
+                font-size: 1rem;
+                transition: all .3s ease;
+                touch-action: manipulation;
+                -webkit-appearance: none;
+                appearance: none;
+                position: relative;
+                z-index: 10
+            }
+
+            .input-field:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-dim)
+            }
+
+            .input-field::placeholder {
+                color: var(--text-muted)
+            }
+
+            .room-info {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 10px 15px;
+                background: var(--accent-dim);
+                border-radius: 10px;
+                margin-bottom: 25px;
+                font-size: .85rem;
+                color: var(--accent)
+            }
+
+            #app-screen {
+                flex-direction: row;
+                padding: 0
+            }
+
+            .app-container {
+                display: flex;
+                width: 100%;
+                height: 100%
+            }
+
+            .sidebar {
+                width: 280px;
+                min-width: 280px;
+                background: var(--bg-secondary);
+                border-right: 1px solid var(--border);
+                display: flex;
+                flex-direction: column;
+                height: 100%
+            }
+
+            .sidebar-header {
+                padding: 20px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between
+            }
+
+            .sidebar-logo {
+                font-family: Montserrat,sans-serif;
+                font-size: 1.1rem;
+                font-weight: 800;
+                color: var(--accent);
+                letter-spacing: 2px
+            }
+
+            .room-id-badge {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .7rem;
+                color: var(--text-muted);
+                background: var(--bg-tertiary);
+                padding: 5px 10px;
+                border-radius: 6px
+            }
+
+            .participants-section {
+                flex: 1;
+                overflow-y: auto;
+                padding: 15px
+            }
+
+            .section-title {
+                font-size: .7rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px
+            }
+
+            .section-title::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: var(--border)
+            }
+
+            .participant-list {
+                display: flex;
+                flex-direction: column;
+                gap: 4px
+            }
+
+            .participant-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                border-radius: 10px;
+                transition: all .2s ease;
+                cursor: default
+            }
+
+            .participant-item:hover {
+                background: var(--bg-tertiary)
+            }
+
+            .participant-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: linear-gradient(135deg,var(--accent-dim),var(--bg-tertiary));
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                font-size: .85rem;
+                color: var(--accent);
+                position: relative;
+                flex-shrink: 0
+            }
+
+            .participant-avatar.my-avatar {
+                cursor: pointer;
+                transition: all .3s ease
+            }
+
+            .participant-avatar.my-avatar:hover {
+                transform: scale(1.1);
+                box-shadow: 0 0 15px rgba(76,217,100,.4)
+            }
+
+            .participant-avatar.my-avatar:hover .avatar-edit-hint {
+                opacity: 1
+            }
+
+            .avatar-edit-hint {
+                position: absolute;
+                bottom: -2px;
+                right: -2px;
+                width: 16px;
+                height: 16px;
+                background: var(--accent);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: .5rem;
+                color: var(--bg-primary);
+                opacity: 0;
+                transition: opacity .3s ease
+            }
+
+            .participant-avatar.speaking {
+                box-shadow: 0 0 0 3px var(--accent);
+                animation: speakingPulse 1s ease-in-out infinite
+            }
+
+            .participant-status {
+                position: absolute;
+                bottom: -2px;
+                right: -2px;
+                width: 12px;
+                height: 12px;
+                background: var(--accent);
+                border: 2px solid var(--bg-secondary);
+                border-radius: 50%
+            }
+
+            .participant-info {
+                flex: 1;
+                min-width: 0
+            }
+
+            .participant-name {
+                font-size: .9rem;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis
+            }
+
+            .participant-key {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .65rem;
+                color: var(--text-muted)
+            }
+
+            .participant-icons {
+                display: flex;
+                gap: 6px;
+                font-size: .75rem;
+                color: var(--text-muted)
+            }
+
+            .participant-icons i.active {
+                color: var(--danger)
+            }
+
+            .participant-icons i.screen {
+                color: var(--accent)
+            }
+
+            .user-controls {
+                padding: 15px;
+                background: var(--bg-tertiary);
+                border-top: 1px solid var(--border)
+            }
+
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+                padding: 10px;
+                background: var(--bg-secondary);
+                border-radius: 10px
+            }
+
+            .user-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: var(--accent);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                color: var(--bg-primary)
+            }
+
+            .user-details {
+                flex: 1
+            }
+
+            .user-name {
+                font-weight: 600;
+                font-size: .9rem
+            }
+
+            .user-key {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .65rem;
+                color: var(--text-muted)
+            }
+
+            .control-buttons {
+                display: flex;
+                gap: 8px
+            }
+
+            .control-btn {
+                flex: 1;
+                padding: 12px;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                color: var(--text-secondary);
+                font-size: 1rem;
+                cursor: pointer;
+                transition: all .2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center
+            }
+
+            .control-btn:hover {
+                background: var(--bg-hover);
+                color: var(--text-primary)
+            }
+
+            .control-btn.active {
+                background: var(--danger);
+                border-color: var(--danger);
+                color: #fff
+            }
+
+            .control-btn.screen-active {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--bg-primary)
+            }
+
+            .control-btn.leave {
+                background: 0 0;
+                border-color: var(--danger);
+                color: var(--danger)
+            }
+
+            .control-btn.leave:hover {
+                background: var(--danger);
+                color: #fff
+            }
+
+            .main-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                min-width: 0;
+                min-height: 0;
+                overflow: hidden
+            }
+
+            .content-header {
+                padding: 15px 20px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: var(--bg-secondary)
+            }
+
+            .channel-info {
+                display: flex;
+                align-items: center;
+                gap: 10px
+            }
+
+            .channel-icon {
+                width: 36px;
+                height: 36px;
+                background: var(--accent-dim);
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--accent)
+            }
+
+            .channel-name {
+                font-weight: 600
+            }
+
+            .channel-status {
+                font-size: .75rem;
+                color: var(--text-muted)
+            }
+
+            .header-actions {
+                display: flex;
+                gap: 10px;
+                align-items: center
+            }
+
+            .header-btn {
+                padding: 8px 12px;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                color: var(--text-secondary);
+                font-size: .8rem;
+                cursor: pointer;
+                transition: all .2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                white-space: nowrap;
+                height: 36px;
+                flex-shrink: 0
+            }
+
+            .header-btn:hover {
+                background: var(--bg-hover);
+                color: var(--text-primary)
+            }
+
+            .content-body {
+                flex: 1;
+                display: flex;
+                overflow: hidden;
+                min-height: 0
+            }
+
+            .chat-area {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                min-height: 0;
+                overflow: hidden
+            }
+
+            .messages-container {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 15px
+            }
+
+            .message {
+                display: flex;
+                gap: 12px;
+                animation: messageIn .3s ease
+            }
+
+            .message-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: var(--bg-tertiary);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                font-size: .85rem;
+                color: var(--accent);
+                flex-shrink: 0
+            }
+
+            .message-content {
+                flex: 1;
+                min-width: 0
+            }
+
+            .message-header {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                margin-bottom: 4px
+            }
+
+            .message-author {
+                font-weight: 600;
+                font-size: .9rem
+            }
+
+            .message-time {
+                font-size: .7rem;
+                color: var(--text-muted)
+            }
+
+            .message-text {
+                font-size: .9rem;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                word-wrap: break-word
+            }
+
+            .message-image {
+                max-width: 400px;
+                max-height: 300px;
+                border-radius: 10px;
+                margin-top: 8px;
+                cursor: pointer;
+                transition: transform .2s ease
+            }
+
+            .message-image:hover {
+                transform: scale(1.02)
+            }
+
+            .chat-input-area {
+                padding: 15px 20px;
+                border-top: 1px solid var(--border);
+                background: var(--bg-secondary)
+            }
+
+            .chat-input-wrapper {
+                display: flex;
+                gap: 10px;
+                align-items: center
+            }
+
+            .chat-input-container {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                transition: all .3s ease;
+                min-height: 44px
+            }
+
+            .chat-input-container:focus-within {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-dim)
+            }
+
+            .chat-input {
+                flex: 1;
+                background: 0 0;
+                border: none;
+                color: var(--text-primary);
+                font-family: Outfit,sans-serif;
+                font-size: .9rem;
+                resize: none;
+                max-height: 120px;
+                line-height: 1.4;
+                align-self: center
+            }
+
+            .chat-input::placeholder {
+                color: var(--text-muted)
+            }
+
+            .input-actions {
+                display: flex;
+                gap: 8px
+            }
+
+            .input-action-btn {
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+                min-height: 32px;
+                background: 0 0;
+                border: none;
+                color: var(--text-muted);
+                cursor: pointer;
+                border-radius: 6px;
+                transition: all .2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0
+            }
+
+            .input-action-btn:hover {
+                background: var(--bg-hover);
+                color: var(--text-primary)
+            }
+
+            .send-btn {
+                width: 44px;
+                height: 44px;
+                min-width: 44px;
+                min-height: 44px;
+                background: var(--accent);
+                border: none;
+                border-radius: 12px;
+                color: var(--bg-primary);
+                cursor: pointer;
+                transition: all .2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1rem;
+                flex-shrink: 0
+            }
+
+            .send-btn:hover {
+                transform: scale(1.05);
+                box-shadow: 0 5px 20px var(--accent-glow)
+            }
+
+            .send-btn:disabled {
+                opacity: .5;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none
+            }
+
+            .screen-share-panel {
+                width: 0;
+                overflow: hidden;
+                border-left: 1px solid var(--border);
+                background: var(--bg-tertiary);
+                transition: width .3s ease;
+                display: flex;
+                flex-direction: column
+            }
+
+            .screen-share-panel.active {
+                width: 400px
+            }
+
+            .screen-panel-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,.7);
+                z-index: 199;
+                pointer-events: none
+            }
+
+            @media (max-width: 768px) {
+                .screen-panel-overlay.active {
+                    display:block;
+                    pointer-events: auto
+                }
+            }
+
+            .screen-share-header {
+                padding: 15px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between
+            }
+
+            .screen-share-title {
+                font-weight: 600;
+                font-size: .9rem;
+                display: flex;
+                align-items: center;
+                gap: 8px
+            }
+
+            .screen-share-title i {
+                color: var(--accent)
+            }
+
+            .close-panel-btn {
+                background: 0 0;
+                border: none;
+                color: var(--text-muted);
+                cursor: pointer;
+                padding: 5px;
+                border-radius: 5px;
+                transition: all .2s ease
+            }
+
+            .close-panel-btn:hover {
+                background: var(--bg-hover);
+                color: var(--text-primary)
+            }
+
+            .screen-share-content {
+                flex: 1;
+                padding: 15px;
+                overflow-y: auto
+            }
+
+            .screen-video {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                background: #000
+            }
+
+            .screen-video-label {
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                background: rgba(0,0,0,.7);
+                color: var(--accent);
+                padding: 5px 10px;
+                border-radius: 6px;
+                font-size: .75rem;
+                font-weight: 500
+            }
+
+            .screen-video-container {
+                aspect-ratio: 16/9;
+                background: var(--bg-primary);
+                border-radius: 10px;
+                overflow: hidden;
+                position: relative;
+                margin-bottom: 10px;
+                cursor: pointer
+            }
+
+            .screen-video-container::after {
+                content: '\f065';
+                font-family: 'Font Awesome 6 Free';
+                font-weight: 900;
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background: rgba(0,0,0,.7);
+                color: #fff;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: .8rem;
+                opacity: 0;
+                transition: opacity .2s ease;
+                pointer-events: none
+            }
+
+            .screen-video-container:hover::after {
+                opacity: 1
+            }
+
+            @media (max-width: 768px) {
+                .screen-video-container::after {
+                    opacity:1
+                }
+            }
+
+            .screen-video-fullscreen {
+                position: fixed!important;
+                top: 0!important;
+                left: 0!important;
+                width: 100vw!important;
+                height: 100vh!important;
+                z-index: 5000!important;
+                border-radius: 0!important;
+                margin: 0!important;
+                aspect-ratio: auto!important;
+                background: #000!important
+            }
+
+            .screen-video-fullscreen .screen-video {
+                width: 100%;
+                height: 100%;
+                object-fit: contain
+            }
+
+            .screen-video-fullscreen .screen-video-label {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 5001
+            }
+
+            .screen-video-fullscreen::after {
+                content: '\f066';
+                opacity: 1;
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 5001
+            }
+
+            .screen-video-controls {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 12px;
+                background: linear-gradient(transparent,rgba(0,0,0,.9));
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                opacity: 0;
+                transition: opacity .2s ease
+            }
+
+            .screen-video-container:hover .screen-video-controls {
+                opacity: 1
+            }
+
+            @media (max-width: 768px) {
+                .screen-video-controls {
+                    opacity:1
+                }
+            }
+
+            .screen-control-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                color: #fff;
+                font-size: .8rem
+            }
+
+            .screen-control-row i {
+                width: 20px;
+                text-align: center;
+                opacity: .7
+            }
+
+            .screen-volume-slider {
+                flex: 1;
+                -webkit-appearance: none;
+                appearance: none;
+                height: 4px;
+                background: rgba(255,255,255,.3);
+                border-radius: 2px;
+                outline: 0
+            }
+
+            .screen-volume-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 12px;
+                height: 12px;
+                background: var(--accent);
+                border-radius: 50%;
+                cursor: pointer
+            }
+
+            .screen-volume-value {
+                min-width: 40px;
+                text-align: right;
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .7rem;
+                color: var(--accent)
+            }
+
+            .screen-disable-btn {
+                background: rgba(255,71,87,.2);
+                border: 1px solid rgba(255,71,87,.5);
+                color: #ff4757;
+                padding: 8px 12px;
+                border-radius: 8px;
+                font-size: .75rem;
+                cursor: pointer;
+                transition: all .2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px
+            }
+
+            .screen-disable-btn:hover {
+                background: rgba(255,71,87,.4)
+            }
+
+            .screen-video-fullscreen .screen-video-controls {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 5002;
+                opacity: 1
+            }
+
+            .screen-disabled-notice {
+                padding: 20px;
+                background: var(--bg-tertiary);
+                border-radius: 10px;
+                text-align: center;
+                margin-bottom: 10px
+            }
+
+            .screen-disabled-notice p {
+                color: var(--text-muted);
+                font-size: .85rem;
+                margin-bottom: 10px
+            }
+
+            .screen-enable-btn {
+                background: var(--accent);
+                color: var(--bg-primary);
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: .8rem;
+                cursor: pointer;
+                font-weight: 600
+            }
+
+            .no-screen-share {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 200px;
+                color: var(--text-muted);
+                text-align: center;
+                gap: 10px
+            }
+
+            .no-screen-share i {
+                font-size: 2rem;
+                opacity: .5
+            }
+
+            .image-preview {
+                display: none;
+                padding: 10px 20px;
+                background: var(--bg-tertiary);
+                border-top: 1px solid var(--border)
+            }
+
+            .image-preview.show {
+                display: block
+            }
+
+            .preview-container {
+                position: relative;
+                display: inline-block
+            }
+
+            .preview-image {
+                max-height: 100px;
+                border-radius: 8px
+            }
+
+            .remove-preview {
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                width: 24px;
+                height: 24px;
+                background: var(--danger);
+                border: none;
+                border-radius: 50%;
+                color: #fff;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: .7rem
+            }
+
+            .image-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,.9);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                cursor: zoom-out
+            }
+
+            .image-modal.show {
+                display: flex
+            }
+
+            .image-modal img {
+                max-width: 90%;
+                max-height: 90%;
+                border-radius: 10px
+            }
+
+            .notification {
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%) translateY(100px);
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                padding: 12px 24px;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: .9rem;
+                opacity: 0;
+                transition: all .3s ease;
+                z-index: 1500
+            }
+
+            .limit-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,.8);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000
+            }
+
+            .limit-modal.show {
+                display: flex
+            }
+
+            .limit-modal-content {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 30px;
+                text-align: center;
+                max-width: 400px;
+                width: 90%
+            }
+
+            .limit-modal-content i.fa-exclamation-triangle {
+                font-size: 3rem;
+                color: #ff6b6b;
+                margin-bottom: 15px
+            }
+
+            .limit-modal-content h3 {
+                color: var(--text);
+                margin-bottom: 10px;
+                font-size: 1.3rem
+            }
+
+            .limit-modal-content p {
+                color: var(--text-secondary);
+                margin-bottom: 10px;
+                font-size: .95rem
+            }
+
+            .limit-modal-content p#error-modal-text {
+                color: var(--text);
+                font-size: 1rem;
+                margin-bottom: 15px
+            }
+
+            .error-help-text {
+                color: var(--text-muted)!important;
+                font-size: .85rem!important;
+                margin-bottom: 15px!important
+            }
+
+            .tg-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: #08c;
+                color: #fff;
+                padding: 12px 24px;
+                border-radius: 10px;
+                text-decoration: none;
+                font-weight: 600;
+                transition: all .3s ease;
+                margin-bottom: 15px
+            }
+
+            .tg-link:hover {
+                background: #069;
+                transform: scale(1.05)
+            }
+
+            .tg-link i {
+                font-size: 1.3rem
+            }
+
+            .close-modal-btn {
+                display: block;
+                width: 100%;
+                padding: 12px;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-secondary);
+                border-radius: 10px;
+                cursor: pointer;
+                font-size: .9rem;
+                transition: all .3s ease
+            }
+
+            .close-modal-btn:hover {
+                background: var(--border);
+                color: var(--text);
+                box-shadow: 0 10px 30px rgba(0,0,0,.3)
+            }
+
+            .welcome-banner {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%,-50%);
+                background: linear-gradient(135deg,var(--bg-secondary) 0,var(--bg-tertiary) 100%);
+                border: 1px solid var(--accent);
+                border-radius: 20px;
+                padding: 30px 40px;
+                text-align: center;
+                z-index: 1800;
+                box-shadow: 0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(76,217,100,.2);
+                max-width: 420px;
+                width: 90%;
+                animation: bannerAppear .5s ease;
+                transition: all .5s ease
+            }
+
+            @keyframes bannerAppear {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%,-50%) scale(.8)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translate(-50%,-50%) scale(1)
+                }
+            }
+
+            .welcome-banner.minimized {
+                top: 80px;
+                left: auto;
+                right: 20px;
+                transform: translate(0,0) scale(.6);
+                padding: 12px 16px;
+                border-radius: 12px;
+                cursor: pointer;
+                max-width: 200px;
+                animation: bannerMinimize .5s ease
+            }
+
+            @keyframes bannerMinimize {
+                from {
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%,-50%) scale(1)
+                }
+
+                to {
+                    top: 80px;
+                    right: 20px;
+                    transform: translate(0,0) scale(.6)
+                }
+            }
+
+            .welcome-banner.minimized .banner-actions,.welcome-banner.minimized .banner-content {
+                display: none
+            }
+
+            .welcome-banner.minimized .banner-mini {
+                display: flex
+            }
+
+            .banner-mini {
+                display: none;
+                align-items: center;
+                gap: 8px;
+                color: var(--accent);
+                font-weight: 600;
+                font-size: .85rem
+            }
+
+            .banner-mini i {
+                font-size: 1.1rem
+            }
+
+            .welcome-banner .banner-icon {
+                font-size: 3rem;
+                color: var(--accent);
+                margin-bottom: 15px;
+                animation: pulse 2s infinite
+            }
+
+            @keyframes pulse {
+                0%,100% {
+                    transform: scale(1)
+                }
+
+                50% {
+                    transform: scale(1.1)
+                }
+            }
+
+            .welcome-banner h3 {
+                color: var(--text);
+                font-size: 1.4rem;
+                margin-bottom: 10px;
+                font-weight: 700
+            }
+
+            .welcome-banner p {
+                color: var(--text-secondary);
+                font-size: .95rem;
+                margin-bottom: 20px;
+                line-height: 1.5
+            }
+
+            .banner-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 12px
+            }
+
+            .banner-tg-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                background: linear-gradient(135deg,#08c 0,#069 100%);
+                color: #fff;
+                padding: 14px 24px;
+                border-radius: 12px;
+                text-decoration: none;
+                font-weight: 600;
+                transition: all .3s ease;
+                border: none;
+                cursor: pointer
+            }
+
+            .banner-tg-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 30px rgba(0,136,204,.4)
+            }
+
+            .banner-tg-btn i {
+                font-size: 1.3rem
+            }
+
+            .banner-minimize-btn {
+                background: 0 0;
+                border: 1px solid var(--border);
+                color: var(--text-secondary);
+                padding: 10px 20px;
+                border-radius: 10px;
+                cursor: pointer;
+                font-size: .9rem;
+                transition: all .3s ease
+            }
+
+            .banner-minimize-btn:hover {
+                background: var(--bg-tertiary);
+                color: var(--text)
+            }
+
+            .banner-timer {
+                position: absolute;
+                bottom: 10px;
+                right: 15px;
+                font-size: .75rem;
+                color: var(--text-muted)
+            }
+
+            @media (max-width: 768px) {
+                .welcome-banner.minimized {
+                    top:auto;
+                    bottom: 100px;
+                    right: 15px;
+                    left: auto;
+                    transform: scale(.7)
+                }
+
+                .welcome-banner {
+                    padding: 25px 20px;
+                    max-width: 350px
+                }
+
+                .welcome-banner h3 {
+                    font-size: 1.2rem
+                }
+
+                .welcome-banner p {
+                    font-size: .9rem
+                }
+            }
+
+            .notification.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0)
+            }
+
+            .notification i {
+                color: var(--accent)
+            }
+
+            .notification.error i {
+                color: var(--danger)
+            }
+
+            @keyframes gridMove {
+                0% {
+                    transform: translate(0,0)
+                }
+
+                100% {
+                    transform: translate(60px,60px)
+                }
+            }
+
+            @keyframes cornerFade {
+                from {
+                    opacity: 0;
+                    transform: scale(.8)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: scale(1)
+                }
+            }
+
+            @keyframes fadeUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0)
+                }
+            }
+
+            @keyframes slideUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0)
+                }
+            }
+
+            @keyframes logoGlow {
+                0%,100% {
+                    filter: drop-shadow(0 0 20px rgba(79, 255, 166, .2))
+                }
+
+                50% {
+                    filter: drop-shadow(0 0 40px rgba(79, 255, 166, .4))
+                }
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0
+                }
+
+                to {
+                    opacity: 1
+                }
+            }
+
+            @keyframes messageIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0)
+                }
+            }
+
+            @keyframes speakingPulse {
+                0%,100% {
+                    box-shadow: 0 0 0 3px var(--accent)
+                }
+
+                50% {
+                    box-shadow: 0 0 0 5px var(--accent-glow)
+                }
+            }
+
+            @media (max-width: 1024px) {
+                .sidebar {
+                    width:240px;
+                    min-width: 240px
+                }
+
+                .screen-share-panel.active {
+                    width: 280px
+                }
+            }
+
+            @media (max-width: 768px) {
+                #home-screen,#nickname-screen {
+                    z-index:200
+                }
+
+                #app-screen {
+                    display: flex!important;
+                    z-index: 200
+                }
+
+                .app-container {
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden
+                }
+
+                .sidebar {
+                    width: 100%;
+                    min-width: 100%;
+                    height: auto;
+                    flex-shrink: 0;
+                    border-right: none;
+                    border-bottom: 1px solid var(--border);
+                    display: flex;
+                    flex-direction: column;
+                    max-height: 45vh
+                }
+
+                .sidebar-header {
+                    padding: 10px 15px;
+                    flex-shrink: 0
+                }
+
+                .participants-section {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 10px;
+                    min-height: 60px;
+                    -webkit-overflow-scrolling: touch
+                }
+
+                .participant-list {
+                    padding-bottom: 10px
+                }
+
+                .participant-item {
+                    padding: 8px 10px
+                }
+
+                .user-controls {
+                    padding: 12px 15px;
+                    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+                    background: var(--bg-tertiary);
+                    border-top: 1px solid var(--border);
+                    flex-shrink: 0
+                }
+
+                .user-info {
+                    display: none
+                }
+
+                .control-buttons {
+                    display: flex;
+                    justify-content: center;
+                    gap: 15px
+                }
+
+                .control-btn {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 50%;
+                    font-size: 1.2rem;
+                    flex-shrink: 0
+                }
+
+                .control-btn.mobile-hidden {
+                    display: none
+                }
+
+                .main-content {
+                    flex: 1;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden
+                }
+
+                .content-header {
+                    padding: 10px 15px;
+                    flex-shrink: 0
+                }
+
+                .header-actions {
+                    gap: 8px;
+                    align-items: center
+                }
+
+                .header-btn {
+                    padding: 8px 12px;
+                    font-size: .8rem;
+                    height: 36px
+                }
+
+                .content-body {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    overflow: hidden;
+                    display: flex
+                }
+
+                .chat-area {
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
+                    overflow: hidden
+                }
+
+                .messages-container {
+                    flex: 1 1 auto;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    padding: 15px;
+                    -webkit-overflow-scrolling: touch;
+                    min-height: 100px;
+                    max-height: none
+                }
+
+                .chat-input-area {
+                    padding: 10px 15px;
+                    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+                    flex-shrink: 0;
+                    background: var(--bg-secondary)
+                }
+
+                .chat-input-container {
+                    padding: 10px 12px
+                }
+
+                .send-btn {
+                    width: 42px;
+                    height: 42px
+                }
+
+                .screen-share-panel {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    width: 100%!important;
+                    height: 100%!important;
+                    z-index: 200;
+                    transform: translateY(100%);
+                    transition: transform .3s ease;
+                    border-left: none
+                }
+
+                .screen-share-panel.active {
+                    transform: translateY(0)
+                }
+
+                .screen-share-content {
+                    flex: 1;
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch
+                }
+
+                .screen-video-container {
+                    aspect-ratio: 16/9;
+                    max-height: 70vh
+                }
+
+                .home-card,.nickname-card {
+                    padding: 25px 20px;
+                    margin: 15px;
+                    width: calc(100% - 30px);
+                    max-width: 400px
+                }
+
+                .card-logo {
+                    font-size: 1.6rem
+                }
+
+                .loading-logo {
+                    font-size: 2.5rem;
+                    letter-spacing: 4px
+                }
+
+                .notification {
+                    bottom: 20px;
+                    padding: 10px 18px;
+                    font-size: .85rem;
+                    max-width: calc(100% - 40px)
+                }
+
+                .image-preview {
+                    padding: 8px 15px
+                }
+            }
+
+            @media (max-width: 480px) {
+                .sidebar {
+                    max-height:40vh
+                }
+
+                .sidebar-header {
+                    padding: 8px 12px
+                }
+
+                .sidebar-logo {
+                    font-size: 1rem
+                }
+
+                .room-id-badge {
+                    font-size: .65rem;
+                    padding: 4px 8px
+                }
+
+                .section-title {
+                    font-size: .65rem
+                }
+
+                .participant-avatar {
+                    width: 32px;
+                    height: 32px
+                }
+
+                .participant-name {
+                    font-size: .85rem
+                }
+
+                .control-btn {
+                    width: 48px;
+                    height: 48px;
+                    min-width: 48px;
+                    min-height: 48px;
+                    font-size: 1.1rem
+                }
+
+                .control-buttons {
+                    gap: 12px
+                }
+
+                .content-header {
+                    padding: 8px 12px
+                }
+
+                .channel-icon {
+                    width: 30px;
+                    height: 30px;
+                    font-size: .8rem
+                }
+
+                .channel-name {
+                    font-size: .9rem
+                }
+
+                .channel-status {
+                    font-size: .65rem
+                }
+
+                .header-btn {
+                    padding: 10px 14px;
+                    min-height: 44px;
+                    height: 44px;
+                    font-size: .75rem;
+                    align-items: center
+                }
+
+                .message {
+                    gap: 10px
+                }
+
+                .message-avatar {
+                    width: 32px;
+                    height: 32px;
+                    font-size: .75rem
+                }
+
+                .message-author {
+                    font-size: .85rem
+                }
+
+                .message-text {
+                    font-size: .85rem
+                }
+
+                .message-image {
+                    max-width: 100%
+                }
+
+                .chat-input {
+                    font-size: .9rem
+                }
+
+                .btn {
+                    padding: 14px 20px;
+                    min-height: 44px;
+                    font-size: .85rem
+                }
+
+                .input-field {
+                    padding: 14px 16px;
+                    min-height: 44px;
+                    font-size: 1rem
+                }
+
+                .send-btn {
+                    min-width: 44px;
+                    min-height: 44px
+                }
+
+                .input-action-btn {
+                    min-width: 44px;
+                    min-height: 44px
+                }
+            }
+
+            @media (max-height: 700px) and (max-width:768px) {
+                .sidebar {
+                    max-height:35vh
+                }
+
+                .participants-section {
+                    min-height: 50px
+                }
+            }
+
+            @supports (-webkit-touch-callout:none) {
+                .user-controls {
+                    padding-bottom: calc(12px + env(safe-area-inset-bottom,20px))
+                }
+
+                .chat-input-area {
+                    padding-bottom: calc(10px + env(safe-area-inset-bottom,20px))
+                }
+
+                .sidebar {
+                    padding-top: env(safe-area-inset-top,0)
+                }
+
+                .participants-section {
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior: contain
+                }
+
+                .messages-container {
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior: contain
+                }
+            }
+
+            .touch-scroll {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+                touch-action: pan-y
+            }
+
+            .user-context-menu {
+                position: fixed;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 12px;
+                min-width: 200px;
+                z-index: 3000;
+                box-shadow: 0 10px 40px rgba(0,0,0,.5);
+                display: none;
+                animation: fadeIn .15s ease
+            }
+
+            .user-context-menu.show {
+                display: block
+            }
+
+            .context-menu-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid var(--border);
+                margin-bottom: 10px
+            }
+
+            .context-menu-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: var(--accent-dim);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--accent);
+                font-weight: 600;
+                font-size: .85rem
+            }
+
+            .context-menu-name {
+                font-weight: 600;
+                font-size: .9rem
+            }
+
+            .context-menu-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 0
+            }
+
+            .context-menu-item label {
+                font-size: .8rem;
+                color: var(--text-secondary);
+                min-width: 70px
+            }
+
+            .volume-slider {
+                flex: 1;
+                -webkit-appearance: none;
+                appearance: none;
+                height: 4px;
+                background: var(--bg-tertiary);
+                border-radius: 2px;
+                outline: 0
+            }
+
+            .volume-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 14px;
+                height: 14px;
+                background: var(--accent);
+                border-radius: 50%;
+                cursor: pointer
+            }
+
+            .volume-slider::-moz-range-thumb {
+                width: 14px;
+                height: 14px;
+                background: var(--accent);
+                border-radius: 50%;
+                cursor: pointer;
+                border: none
+            }
+
+            .volume-value {
+                font-family: 'JetBrains Mono',monospace;
+                font-size: .75rem;
+                color: var(--accent);
+                min-width: 35px;
+                text-align: right
+            }
+
+            .context-menu-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 2999;
+                display: none;
+                background: 0 0;
+                pointer-events: none
+            }
+
+            .context-menu-overlay.show {
+                display: block;
+                pointer-events: auto
+            }
+        </style>
+    </head>
+    <body>
+        <div class="noise-overlay"></div>
+        <div id="loading-screen">
+            <div class="loading-grid"></div>
+            <div class="loading-corners">
+                <div class="loading-corner loading-corner-tl"></div>
+                <div class="loading-corner loading-corner-tr"></div>
+                <div class="loading-corner loading-corner-bl"></div>
+                <div class="loading-corner loading-corner-br"></div>
+            </div>
+            <div class="loading-content">
+                <div class="loading-logo-wrapper">
+                    <div class="loading-logo">XioEbet</div>
+                    <div class="loading-tagline">Voice & Chat</div>
+                </div>
+                <div class="loading-progress-wrapper">
+                    <div class="loading-progress-container">
+                        <div class="loading-progress-bar" id="loading-progress"></div>
+                    </div>
+                    <div class="loading-percent" id="loading-percent">0%</div>
+                </div>
+            </div>
+        </div>
+        <div id="home-screen">
+            <div class="home-card">
+                <div class="card-logo">XioEbet</div>
+                <div class="card-subtitle">Создай комнату и позови друзей</div>
+                <button class="btn btn-primary" id="create-room-btn">
+                    <i class="fas fa-plus"></i>
+                    Создать комнату
+                </button>
+                <div class="generated-link" id="generated-link">
+                    <div class="link-label">Ссылка на комнату</div>
+                    <div class="link-value" id="room-link" onclick="copyLink()"></div>
+                    <div class="link-actions">
+                        <button class="btn btn-secondary" onclick="copyLink()">
+                            <i class="fas fa-copy"></i>
+                            Копировать
+                        </button>
+                        <button class="btn btn-primary" id="join-created-btn">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Войти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="nickname-screen">
+            <div class="nickname-card">
+                <div class="card-logo">XioEbet</div>
+                <div class="room-info" id="room-info">
+                    <i class="fas fa-users"></i>
+                    <span id="room-participant-count">0</span>
+                    участников в комнате
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Твой никнейм</label>
+                    <input type="text" class="input-field" id="nickname-input" placeholder="Введи никнейм..." maxlength="20" autocomplete="off">
+                </div>
+                <button class="btn btn-primary" id="join-btn" disabled="disabled">
+                    <i class="fas fa-headset"></i>
+                    Присоединиться
+                </button>
+            </div>
+        </div>
+        <div id="app-screen">
+            <div class="app-container">
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <div class="sidebar-logo">XioEbet</div>
+                        <div class="room-id-badge" id="room-id-display"></div>
+                    </div>
+                    <div class="participants-section">
+                        <div class="section-title">
+                            <span>
+                                В голосовом канале — <span id="participant-count">0</span>
+                            </span>
+                        </div>
+                        <div class="participant-list" id="participant-list"></div>
+                    </div>
+                    <div class="user-controls">
+                        <div class="user-info">
+                            <div class="user-avatar" id="my-avatar"></div>
+                            <div class="user-details">
+                                <div class="user-name" id="my-name"></div>
+                                <div class="user-key" id="my-key"></div>
+                            </div>
+                        </div>
+                        <div class="control-buttons">
+                            <button class="control-btn" id="mute-btn" title="Микрофон">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <button class="control-btn" id="deafen-btn" title="Звук">
+                                <i class="fas fa-headphones"></i>
+                            </button>
+                            <button class="control-btn" id="screen-btn" title="Демонстрация экрана">
+                                <i class="fas fa-desktop"></i>
+                            </button>
+                            <button class="control-btn" id="participants-btn" title="Участники" style="display:none">
+                                <i class="fas fa-users"></i>
+                            </button>
+                            <button class="control-btn leave" id="leave-btn" title="Выйти">
+                                <i class="fas fa-phone-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="main-content">
+                    <div class="content-header">
+                        <div class="channel-info">
+                            <div class="channel-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div>
+                                <div class="channel-name">Общий чат</div>
+                                <div class="channel-status">Голос + Текст</div>
+                            </div>
+                        </div>
+                        <div class="header-actions">
+                            <button class="header-btn" id="toggle-screen-panel">
+                                <i class="fas fa-tv"></i>
+                                Демки
+                            </button>
+                            <button class="header-btn" onclick="copyCurrentLink()">
+                                <i class="fas fa-link"></i>
+                                Ссылка
+                            </button>
+                        </div>
+                    </div>
+                    <div class="content-body">
+                        <div class="chat-area">
+                            <div class="messages-container" id="messages-container"></div>
+                            <div class="image-preview" id="image-preview">
+                                <div class="preview-container">
+                                    <img class="preview-image" id="preview-image" src="">
+                                    <button class="remove-preview" onclick="removeImagePreview()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="chat-input-wrapper">
+                                    <div class="chat-input-container">
+                                        <textarea class="chat-input" id="chat-input" placeholder="Написать сообщение..." rows="1"></textarea>
+                                        <div class="input-actions">
+                                            <input type="file" id="image-input" accept="image/*" hidden>
+                                            <input type="file" id="avatar-input" accept="image/*" hidden>
+                                            <button class="input-action-btn" onclick="document.getElementById('image-input').click()" title="Прикрепить изображение">
+                                                <i class="fas fa-image"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button class="send-btn" id="send-btn" disabled="disabled">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="screen-panel-overlay" id="screen-panel-overlay" onclick="toggleScreenPanel()"></div>
+                        <div class="screen-share-panel" id="screen-share-panel">
+                            <div class="screen-share-header">
+                                <div class="screen-share-title">
+                                    <i class="fas fa-tv"></i>
+                                    Демонстрации
+                                </div>
+                                <button class="close-panel-btn" onclick="toggleScreenPanel()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="screen-share-content" id="screen-share-content">
+                                <div class="no-screen-share">
+                                    <i class="fas fa-desktop"></i>
+                                    <span>Никто не показывает экран</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="image-modal" id="image-modal" onclick="closeImageModal()">
+            <img id="modal-image" src="">
+        </div>
+        <div class="context-menu-overlay" id="context-menu-overlay" onclick="closeContextMenu()"></div>
+        <div class="user-context-menu" id="user-context-menu">
+            <div class="context-menu-header">
+                <div class="context-menu-avatar" id="context-avatar"></div>
+                <div class="context-menu-name" id="context-name"></div>
+            </div>
+            <div class="context-menu-item">
+                <label>
+                    <i class="fas fa-volume-up"></i>
+                    Громкость
+                </label>
+                <input type="range" class="volume-slider" id="user-volume-slider" min="0" max="200" value="100">
+                <span class="volume-value" id="volume-value">100%</span>
+            </div>
+        </div>
+        <div class="notification" id="notification">
+            <i class="fas fa-check-circle"></i>
+            <span id="notification-text"></span>
+        </div>
+        <div class="limit-modal" id="error-modal">
+            <div class="limit-modal-content">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Упс, ошибочка!</h3>
+                <p id="error-modal-text">Что-то пошло не так...</p>
+                <p class="error-help-text">Напишите нам для решения проблемы:</p>
+                <a href="https://t.me/Xio666Xio" target="_blank" class="tg-link">
+                    <i class="fab fa-telegram"></i>
+                    Написать в Telegram 
+                </a>
+                <button class="close-modal-btn" onclick="closeErrorModal()">Закрыть</button>
+            </div>
+        </div>
+        <div class="welcome-banner" id="welcome-banner" style="display:none">
+            <div class="banner-content">
+                <i class="fab fa-telegram banner-icon"></i>
+                <h3>Добро пожаловать!</h3>
+                <p>Есть идеи, предложения или нашли баг? Напишите мне — помогу и всё исправлю!</p>
+            </div>
+            <div class="banner-actions">
+                <a href="https://t.me/Xio666Xio" target="_blank" class="banner-tg-btn">
+                    <i class="fab fa-telegram"></i>
+                    Написать в Telegram 
+                </a>
+                <button class="banner-minimize-btn" onclick="minimizeBanner()">
+                    <i class="fas fa-compress-alt"></i>
+                    Свернуть
+                </button>
+            </div>
+            <div class="banner-mini" onclick="expandBanner()">
+                <i class="fab fa-telegram"></i>
+                <span>Связаться</span>
+            </div>
+            <span class="banner-timer" id="banner-timer"></span>
+        </div>
+        <script>
+            (function(_0x776485, _0x3040c7) {
+                const _0x23cad2 = _0x237e
+                  , _0x496d79 = _0x776485();
+                while (!![]) {
+                    try {
+                        const _0x552263 = -parseInt(_0x23cad2(0x26d)) / 0x1 + parseInt(_0x23cad2(0x25e)) / 0x2 * (parseInt(_0x23cad2(0x25c)) / 0x3) + -parseInt(_0x23cad2(0x291)) / 0x4 * (-parseInt(_0x23cad2(0x1db)) / 0x5) + parseInt(_0x23cad2(0x2d6)) / 0x6 * (parseInt(_0x23cad2(0x23c)) / 0x7) + -parseInt(_0x23cad2(0x232)) / 0x8 * (parseInt(_0x23cad2(0x1ff)) / 0x9) + parseInt(_0x23cad2(0x19b)) / 0xa * (-parseInt(_0x23cad2(0x292)) / 0xb) + parseInt(_0x23cad2(0x1ae)) / 0xc;
+                        if (_0x552263 === _0x3040c7)
+                            break;
+                        else
+                            _0x496d79['push'](_0x496d79['shift']());
+                    } catch (_0x5b14ef) {
+                        _0x496d79['push'](_0x496d79['shift']());
+                    }
+                }
+            }(_0x2dcc, 0xda62f),
+            (( () => {
+                'use strict';
+                const _0x419155 = _0x237e;
+                const _0x3a4ec6 = _0x346037 => document[_0x419155(0x2a8)](_0x346037)
+                  , _0x5ca296 = _0x49c75a => document[_0x419155(0x1f0)](_0x49c75a)
+                  , _0xbb0903 = {
+                    'ws': null,
+                    'clientId': null,
+                    'roomId': null,
+                    'nickname': null,
+                    'userKey': null,
+                    'participants': new Map(),
+                    'peerConnections': new Map(),
+                    'localStream': null,
+                    'screenStream': null,
+                    'isMuted': !0x1,
+                    'isDeafened': !0x1,
+                    'isScreenSharing': !0x1,
+                    'pendingImage': null,
+                    'screenSharers': new Map(),
+                    'userVolumes': new Map(),
+                    'currentContextUser': null,
+                    'screenVolumes': new Map(),
+                    'disabledScreens': new Set(),
+                    'screenStreams': new Map()
+                }
+                  , _0x8b8ead = {
+                    'iceServers': [{
+                        'urls': _0x419155(0x1be)
+                    }, {
+                        'urls': 'stun:stun1.l.google.com:19302'
+                    }, {
+                        'urls': _0x419155(0x211)
+                    }]
+                }
+                  , _0x86cc9 = _0x3a4ec6(_0x419155(0x1fb))
+                  , _0x18829a = _0x3a4ec6(_0x419155(0x2ef))
+                  , _0x4647e3 = _0x3a4ec6(_0x419155(0x29d))
+                  , _0x313908 = _0x3a4ec6(_0x419155(0x1bd));
+                _0x3a4ec6(_0x419155(0x20a));
+                async function _0x15622f() {
+                    const _0x19159b = _0x419155;
+                    var _0x2e0d57;
+                    await (async function() {
+                        const _0x37830a = _0x237e
+                          , _0x1c6f97 = _0x3a4ec6(_0x37830a(0x1d7))
+                          , _0x4cf088 = _0x3a4ec6(_0x37830a(0x2a7))
+                          , _0x3c2911 = 0x9c4
+                          , _0x3937a1 = Date['now']();
+                        return new Promise(_0x53b3fd => {
+                            function _0x194e41() {
+                                const _0x311c96 = _0x237e
+                                  , _0x394697 = Date[_0x311c96(0x28f)]() - _0x3937a1
+                                  , _0x167355 = Math[_0x311c96(0x2aa)](_0x394697 / _0x3c2911 * 0x64, 0x64);
+                                _0x1c6f97[_0x311c96(0x2d5)][_0x311c96(0x230)] = _0x167355 + '%',
+                                _0x4cf088[_0x311c96(0x1b0)] = Math['floor'](_0x167355) + '%',
+                                _0x167355 < 0x64 ? requestAnimationFrame(_0x194e41) : _0x53b3fd();
+                            }
+                            requestAnimationFrame(_0x194e41);
+                        }
+                        );
+                    }()),
+                    _0x86cc9[_0x19159b(0x2d5)][_0x19159b(0x27a)] = '0',
+                    _0x86cc9[_0x19159b(0x2d5)][_0x19159b(0x1a9)] = _0x19159b(0x21a),
+                    _0x86cc9[_0x19159b(0x2d5)][_0x19159b(0x23e)] = _0x19159b(0x2b0),
+                    await (_0x2e0d57 = 0x258,
+                    new Promise(_0x1af504 => setTimeout(_0x1af504, _0x2e0d57))),
+                    _0x86cc9[_0x19159b(0x2d5)][_0x19159b(0x1da)] = _0x19159b(0x2b0);
+                    const _0x2b666d = window['location']['pathname']['match'](/\/room\/([a-z0-9-]+)/i);
+                    _0x2b666d ? (_0xbb0903[_0x19159b(0x28a)] = _0x2b666d[0x1],
+                    await (async function() {
+                        const _0x440a2d = _0x19159b;
+                        try {
+                            const _0x5b6a07 = await fetch('/x/r/' + _0xbb0903[_0x440a2d(0x28a)])
+                              , _0x196f91 = await _0x5b6a07[_0x440a2d(0x238)]();
+                            _0x196f91['e'] ? (_0x3a4ec6(_0x440a2d(0x1f9))[_0x440a2d(0x1b0)] = _0x196f91['p'],
+                            _0x3392ff(_0x4647e3)) : (_0x15ed82(_0x440a2d(0x1c5), !0x0),
+                            _0x3392ff(_0x18829a));
+                        } catch (_0x51e3a5) {
+                            _0x15ed82(_0x440a2d(0x2c7), !0x0),
+                            _0x3392ff(_0x18829a);
+                        }
+                    }())) : _0x3392ff(_0x18829a);
+                }
+                function _0x3392ff(_0x17322c) {
+                    const _0x31a9ca = _0x419155;
+                    [_0x18829a, _0x4647e3, _0x313908][_0x31a9ca(0x304)](_0x459937 => {
+                        const _0x22c9ca = _0x31a9ca;
+                        _0x459937[_0x22c9ca(0x2d5)]['display'] = _0x22c9ca(0x2b0),
+                        _0x459937[_0x22c9ca(0x2d5)]['opacity'] = '0',
+                        _0x459937[_0x22c9ca(0x2d5)]['pointerEvents'] = _0x22c9ca(0x2b0);
+                    }
+                    ),
+                    _0x17322c['style'][_0x31a9ca(0x1da)] = _0x31a9ca(0x2a5),
+                    _0x17322c['style'][_0x31a9ca(0x23e)] = _0x31a9ca(0x2d2),
+                    requestAnimationFrame( () => {
+                        const _0x190be4 = _0x31a9ca;
+                        _0x17322c[_0x190be4(0x2d5)][_0x190be4(0x27a)] = '1';
+                    }
+                    );
+                }
+                _0x3a4ec6(_0x419155(0x29b))[_0x419155(0x2b6)](_0x419155(0x24f), async () => {
+                    const _0x350d70 = _0x419155;
+                    try {
+                        const _0x6d2ee5 = await fetch(_0x350d70(0x262))
+                          , _0x44850d = await _0x6d2ee5[_0x350d70(0x238)]();
+                        await new Promise(_0x5a2f0f => setTimeout(_0x5a2f0f, 0x44c));
+                        const _0x1999af = await fetch('/x/c', {
+                            'method': _0x350d70(0x19a),
+                            'headers': {
+                                'X-T': _0x44850d['d']
+                            }
+                        })
+                          , _0x49c610 = await _0x1999af[_0x350d70(0x238)]();
+                        if (!_0x1999af['ok'])
+                            return void (_0x49c610['limit'] ? (_0x3a4ec6(_0x350d70(0x220))[_0x350d70(0x1b0)] = 'Достигнут\x20лимит\x20активных\x20комнат.\x20Попробуйте\x20позже.',
+                            _0x3a4ec6('#error-modal')[_0x350d70(0x29e)]['add'](_0x350d70(0x2d3))) : _0x15ed82(_0x350d70(0x2b9), !0x0));
+                        _0xbb0903[_0x350d70(0x28a)] = _0x49c610['r'];
+                        const _0x2ebf9d = window[_0x350d70(0x1d2)][_0x350d70(0x219)] + _0x49c610['l'];
+                        _0x3a4ec6('#room-link')[_0x350d70(0x1b0)] = _0x2ebf9d,
+                        _0x3a4ec6('#generated-link')[_0x350d70(0x29e)][_0x350d70(0x1ec)](_0x350d70(0x2d3)),
+                        _0x15ed82(_0x350d70(0x1b7));
+                    } catch (_0x332eee) {
+                        _0x15ed82(_0x350d70(0x2b9), !0x0);
+                    }
+                }
+                ),
+                _0x3a4ec6(_0x419155(0x2f4))[_0x419155(0x2b6)](_0x419155(0x24f), () => {
+                    const _0x584ad2 = _0x419155;
+                    window[_0x584ad2(0x2f6)][_0x584ad2(0x1c7)]({}, '', _0x584ad2(0x2c8) + _0xbb0903[_0x584ad2(0x28a)]),
+                    _0x3a4ec6(_0x584ad2(0x1f9))[_0x584ad2(0x1b0)] = '0',
+                    _0x3392ff(_0x4647e3);
+                }
+                );
+                const _0x3976b9 = _0x3a4ec6('#nickname-input')
+                  , _0x32c8f4 = _0x3a4ec6(_0x419155(0x2c4));
+                async function _0x2f0998() {
+                    const _0x2d6e2a = _0x419155;
+                    _0xbb0903['nickname'] = _0x3976b9[_0x2d6e2a(0x2be)][_0x2d6e2a(0x2bc)](),
+                    _0xbb0903[_0x2d6e2a(0x1cf)] && _0xbb0903[_0x2d6e2a(0x28a)] && (_0xbb0903[_0x2d6e2a(0x1c2)] = !0x0,
+                    _0xbb0903['localStream'] = null,
+                    (function() {
+                        const _0x343917 = _0x2d6e2a
+                          , _0x1c4690 = _0x343917(0x218) === window['location']['protocol'] ? _0x343917(0x1ad) : _0x343917(0x21f);
+                        _0xbb0903['ws'] = new WebSocket(_0x1c4690 + '//' + window[_0x343917(0x1d2)][_0x343917(0x2f0)]),
+                        _0xbb0903['ws'][_0x343917(0x27f)] = () => {
+                            const _0x3b6f32 = _0x343917;
+                            console[_0x3b6f32(0x1aa)]('WebSocket\x20connected');
+                        }
+                        ,
+                        _0xbb0903['ws'][_0x343917(0x290)] = _0x49cd82 => {
+                            const _0x567fc3 = _0x343917;
+                            !function(_0x37db50) {
+                                const _0x41f216 = _0x237e;
+                                switch (_0x37db50[_0x41f216(0x1a7)]) {
+                                case _0x41f216(0x24c):
+                                    _0xbb0903[_0x41f216(0x1bc)] = _0x37db50[_0x41f216(0x1bc)],
+                                    _0xbb0903['ws'][_0x41f216(0x286)](JSON[_0x41f216(0x19c)]({
+                                        'type': _0x41f216(0x1b3),
+                                        'roomId': _0xbb0903[_0x41f216(0x28a)],
+                                        'nickname': _0xbb0903[_0x41f216(0x1cf)]
+                                    }));
+                                    break;
+                                case _0x41f216(0x2ed):
+                                    _0xbb0903['userKey'] = _0x37db50[_0x41f216(0x1c4)],
+                                    _0xbb0903[_0x41f216(0x236)]['clear'](),
+                                    _0x37db50[_0x41f216(0x236)][_0x41f216(0x304)](_0x4fcf0b => _0xbb0903[_0x41f216(0x236)][_0x41f216(0x1e6)](_0x4fcf0b['id'], _0x4fcf0b)),
+                                    _0x3392ff(_0x313908),
+                                    (function() {
+                                        const _0x24ef02 = _0x41f216;
+                                        _0x3a4ec6(_0x24ef02(0x2ba))[_0x24ef02(0x1b0)] = '#' + _0xbb0903[_0x24ef02(0x28a)],
+                                        _0x3a4ec6('#my-avatar')[_0x24ef02(0x1b0)] = _0xbb0903[_0x24ef02(0x1cf)][0x0]['toUpperCase'](),
+                                        _0x3a4ec6(_0x24ef02(0x1f8))['textContent'] = _0xbb0903[_0x24ef02(0x1cf)],
+                                        _0x3a4ec6(_0x24ef02(0x1a5))[_0x24ef02(0x1b0)] = _0xbb0903['userKey'],
+                                        _0x2782d5();
+                                        const _0x5b198a = _0x3a4ec6(_0x24ef02(0x288));
+                                        _0x5b198a[_0x24ef02(0x29e)][_0x24ef02(0x1ec)](_0x24ef02(0x24a)),
+                                        _0x5b198a[_0x24ef02(0x2c3)] = _0x24ef02(0x277);
+                                        const _0xe4c4fe = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i[_0x24ef02(0x2f5)](navigator[_0x24ef02(0x301)])
+                                          , _0x1bcfae = /iPad|iPhone|iPod/[_0x24ef02(0x2f5)](navigator[_0x24ef02(0x301)]);
+                                        _0xe4c4fe && (_0x3a4ec6(_0x24ef02(0x1a1))[_0x24ef02(0x2d5)][_0x24ef02(0x1da)] = 'none',
+                                        _0x3a4ec6(_0x24ef02(0x1e9))[_0x24ef02(0x2d5)][_0x24ef02(0x1da)] = _0x24ef02(0x2a5),
+                                        _0x3a4ec6(_0x24ef02(0x1e9))[_0x24ef02(0x2b6)](_0x24ef02(0x24f), () => {
+                                            const _0x20335f = _0x24ef02;
+                                            _0x3a4ec6(_0x20335f(0x1e8))['scrollIntoView']({
+                                                'behavior': _0x20335f(0x268)
+                                            });
+                                        }
+                                        )),
+                                        _0x1bcfae && (document['body'][_0x24ef02(0x2b6)](_0x24ef02(0x235), _0x48cb11, {
+                                            'once': !0x0
+                                        }),
+                                        document[_0x24ef02(0x19d)][_0x24ef02(0x2b6)]('click', _0x48cb11, {
+                                            'once': !0x0
+                                        }));
+                                    }()),
+                                    _0x5d6caf = _0x37db50[_0x41f216(0x1f3)],
+                                    _0x3a4ec6(_0x41f216(0x228))[_0x41f216(0x2c3)] = '',
+                                    _0x5d6caf[_0x41f216(0x304)](_0x4aec30 => _0x4eda4c(_0x4aec30, !0x1)),
+                                    _0x37db50['participants']['forEach'](_0x3cc5f6 => {
+                                        const _0x7843fc = _0x41f216;
+                                        _0x3cc5f6['id'] !== _0xbb0903[_0x7843fc(0x1bc)] && _0x20ebef(_0x3cc5f6['id'], !0x0);
+                                    }
+                                    ),
+                                    setTimeout( () => (function() {
+                                        const _0x18fc34 = _0x41f216
+                                          , _0x34a597 = _0x3a4ec6(_0x18fc34(0x2e3));
+                                        _0x34a597[_0x18fc34(0x2d5)][_0x18fc34(0x1da)] = _0x18fc34(0x247),
+                                        _0x34a597['classList'][_0x18fc34(0x2a6)]('minimized'),
+                                        _0x4d363b = 0x1e,
+                                        _0x5250bf(),
+                                        _0x3f9907 && clearInterval(_0x3f9907),
+                                        _0x3f9907 = setInterval( () => {
+                                            _0x4d363b--,
+                                            _0x5250bf(),
+                                            _0x4d363b <= 0x0 && (minimizeBanner(),
+                                            clearInterval(_0x3f9907));
+                                        }
+                                        , 0x3e8);
+                                    }()), 0x1f4);
+                                    break;
+                                case 'user-joined':
+                                    _0xbb0903['participants']['set'](_0x37db50[_0x41f216(0x203)]['id'], _0x37db50[_0x41f216(0x203)]),
+                                    _0x2782d5(),
+                                    _0x15ed82(_0x37db50[_0x41f216(0x203)][_0x41f216(0x1cf)] + '\x20присоединился');
+                                    break;
+                                case _0x41f216(0x1a6):
+                                    _0xbb0903[_0x41f216(0x236)][_0x41f216(0x267)](_0x37db50['clientId']),
+                                    _0x353481(_0x37db50[_0x41f216(0x1bc)]),
+                                    _0x2782d5(),
+                                    _0x15ed82(_0x37db50[_0x41f216(0x1cf)] + _0x41f216(0x2c2));
+                                    break;
+                                case _0x41f216(0x2b3):
+                                    _0xbb0903[_0x41f216(0x236)][_0x41f216(0x1d8)](),
+                                    _0x37db50[_0x41f216(0x236)][_0x41f216(0x304)](_0x52935e => _0xbb0903[_0x41f216(0x236)][_0x41f216(0x1e6)](_0x52935e['id'], _0x52935e)),
+                                    _0x2782d5();
+                                    break;
+                                case _0x41f216(0x1ba):
+                                    _0x4eda4c(_0x37db50[_0x41f216(0x226)]);
+                                    break;
+                                case _0x41f216(0x2d0):
+                                    !async function(_0x4fe47b, _0xb1d830) {
+                                        const _0x52a1a1 = _0x41f216;
+                                        let _0x2866ff = _0xbb0903[_0x52a1a1(0x2dd)][_0x52a1a1(0x2ae)](_0x4fe47b);
+                                        _0x2866ff || (await _0x20ebef(_0x4fe47b, !0x1),
+                                        _0x2866ff = _0xbb0903['peerConnections'][_0x52a1a1(0x2ae)](_0x4fe47b));
+                                        try {
+                                            await _0x2866ff[_0x52a1a1(0x227)](new RTCSessionDescription(_0xb1d830));
+                                            const _0x30155d = await _0x2866ff[_0x52a1a1(0x1e0)]();
+                                            await _0x2866ff['setLocalDescription'](_0x30155d),
+                                            _0xbb0903['ws'][_0x52a1a1(0x286)](JSON[_0x52a1a1(0x19c)]({
+                                                'type': _0x52a1a1(0x23f),
+                                                'targetId': _0x4fe47b,
+                                                'answer': _0x2866ff[_0x52a1a1(0x1a8)]
+                                            }));
+                                        } catch (_0x1acae1) {
+                                            console['error']('handleOffer\x20error:', _0x1acae1);
+                                        }
+                                    }(_0x37db50[_0x41f216(0x214)], _0x37db50[_0x41f216(0x285)]);
+                                    break;
+                                case _0x41f216(0x23f):
+                                    !async function(_0x4492be, _0x4b49c5) {
+                                        const _0xe516d9 = _0x41f216
+                                          , _0x42389f = _0xbb0903[_0xe516d9(0x2dd)][_0xe516d9(0x2ae)](_0x4492be);
+                                        if (_0x42389f)
+                                            try {
+                                                await _0x42389f[_0xe516d9(0x227)](new RTCSessionDescription(_0x4b49c5));
+                                            } catch (_0xa935e3) {
+                                                console['error'](_0xe516d9(0x1ea), _0xa935e3);
+                                            }
+                                    }(_0x37db50[_0x41f216(0x214)], _0x37db50[_0x41f216(0x1e4)]);
+                                    break;
+                                case _0x41f216(0x2a2):
+                                    !async function(_0x5f30c5, _0x363f25) {
+                                        const _0x2b7872 = _0x41f216
+                                          , _0x53527e = _0xbb0903[_0x2b7872(0x2dd)][_0x2b7872(0x2ae)](_0x5f30c5);
+                                        _0x53527e && await _0x53527e[_0x2b7872(0x2a0)](new RTCIceCandidate(_0x363f25));
+                                    }(_0x37db50[_0x41f216(0x214)], _0x37db50['candidate']);
+                                    break;
+                                case _0x41f216(0x1cd):
+                                    !function(_0x1a7c4f, _0x22562b) {
+                                        const _0x14c7f9 = _0x41f216
+                                          , _0x7cec8b = _0xbb0903['participants'][_0x14c7f9(0x2ae)](_0x1a7c4f);
+                                        _0x7cec8b && (_0x7cec8b[_0x14c7f9(0x1c2)] = _0x22562b,
+                                        _0x2782d5());
+                                    }(_0x37db50['clientId'], _0x37db50[_0x41f216(0x1c2)]);
+                                    break;
+                                case _0x41f216(0x305):
+                                    !function(_0x52885b, _0x568d38) {
+                                        const _0x18ea5d = _0x41f216
+                                          , _0x10d498 = _0xbb0903[_0x18ea5d(0x236)][_0x18ea5d(0x2ae)](_0x52885b);
+                                        _0x10d498 && (_0x10d498[_0x18ea5d(0x213)] = _0x568d38,
+                                        _0x2782d5());
+                                    }(_0x37db50['clientId'], _0x37db50[_0x41f216(0x213)]);
+                                    break;
+                                case _0x41f216(0x25b):
+                                    const _0x3439ed = _0xbb0903[_0x41f216(0x236)][_0x41f216(0x2ae)](_0x37db50[_0x41f216(0x1bc)]);
+                                    _0x3439ed && (_0x3439ed['avatar'] = _0x37db50[_0x41f216(0x248)],
+                                    _0x2782d5());
+                                    break;
+                                case 'screen-share-started':
+                                    _0x15ed82(_0x37db50[_0x41f216(0x1cf)] + _0x41f216(0x234));
+                                    break;
+                                case 'screen-share-stopped':
+                                    _0x5dd41e(_0x37db50['clientId']);
+                                }
+                                var _0x5d6caf;
+                            }(JSON[_0x567fc3(0x2ac)](_0x49cd82[_0x567fc3(0x22c)]));
+                        }
+                        ,
+                        _0xbb0903['ws'][_0x343917(0x2e4)] = () => {
+                            const _0x2af652 = _0x343917;
+                            console[_0x2af652(0x1aa)](_0x2af652(0x280)),
+                            _0x15ed82(_0x2af652(0x303), !0x0);
+                        }
+                        ;
+                    }()));
+                }
+                async function _0x56afa9() {
+                    const _0x3397ec = _0x419155;
+                    if (_0xbb0903[_0x3397ec(0x2b2)])
+                        return !0x0;
+                    const _0x249a29 = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i[_0x3397ec(0x2f5)](navigator[_0x3397ec(0x301)])
+                      , _0x39e180 = /iPad|iPhone|iPod/[_0x3397ec(0x2f5)](navigator['userAgent'])
+                      , _0x48c6ec = [{
+                        'audio': {
+                            'echoCancellation': !0x0,
+                            'noiseSuppression': !0x0,
+                            'autoGainControl': !0x0,
+                            'channelCount': 0x1,
+                            'sampleRate': 0xbb80
+                        },
+                        'video': !0x1
+                    }, {
+                        'audio': {
+                            'echoCancellation': !0x0,
+                            'noiseSuppression': !0x0,
+                            'autoGainControl': !0x0
+                        },
+                        'video': !0x1
+                    }, {
+                        'audio': !0x0,
+                        'video': !0x1
+                    }];
+                    let _0x3f0834 = !0x1;
+                    for (const _0x5a95bc of _0x48c6ec) {
+                        if (_0x3f0834)
+                            break;
+                        try {
+                            _0xbb0903['localStream'] = await navigator['mediaDevices']['getUserMedia'](_0x5a95bc),
+                            _0x3f0834 = !0x0,
+                            console[_0x3397ec(0x1aa)](_0x3397ec(0x284), _0x5a95bc);
+                        } catch (_0x48fa7d) {
+                            console['log']('Failed\x20with\x20constraints:', _0x5a95bc, _0x48fa7d['message']);
+                        }
+                    }
+                    if (!_0x3f0834)
+                        return _0x15ed82(_0x3397ec(0x224), !0x0),
+                        !0x1;
+                    if (_0x249a29 && !_0x39e180)
+                        try {
+                            !function(_0xb92747) {
+                                const _0x4975b0 = _0x3397ec;
+                                try {
+                                    const _0x5c606e = new (window['AudioContext'] || window[(_0x4975b0(0x300))])()
+                                      , _0x2a7233 = _0x5c606e['createMediaStreamSource'](_0xb92747)
+                                      , _0x16b908 = _0x5c606e[_0x4975b0(0x2b1)]()
+                                      , _0x102fea = _0x5c606e[_0x4975b0(0x24b)]();
+                                    _0x102fea[_0x4975b0(0x1a7)] = 'highpass',
+                                    _0x102fea[_0x4975b0(0x2cc)]['value'] = 0x50;
+                                    const _0x2e98a8 = _0x5c606e['createBiquadFilter']();
+                                    _0x2e98a8['type'] = _0x4975b0(0x21c),
+                                    _0x2e98a8[_0x4975b0(0x2cc)][_0x4975b0(0x2be)] = 0x2ee0;
+                                    const _0x254f15 = _0x5c606e[_0x4975b0(0x1e2)]();
+                                    _0x254f15[_0x4975b0(0x18c)][_0x4975b0(0x2be)] = -0x32,
+                                    _0x254f15[_0x4975b0(0x2eb)][_0x4975b0(0x2be)] = 0x28,
+                                    _0x254f15[_0x4975b0(0x2db)][_0x4975b0(0x2be)] = 0xc,
+                                    _0x254f15[_0x4975b0(0x2d7)][_0x4975b0(0x2be)] = 0x0,
+                                    _0x254f15[_0x4975b0(0x26b)][_0x4975b0(0x2be)] = 0.25;
+                                    const _0x4839de = _0x5c606e[_0x4975b0(0x2f7)]();
+                                    _0x4839de[_0x4975b0(0x217)][_0x4975b0(0x2be)] = 0.9,
+                                    _0x2a7233[_0x4975b0(0x278)](_0x102fea),
+                                    _0x102fea[_0x4975b0(0x278)](_0x2e98a8),
+                                    _0x2e98a8[_0x4975b0(0x278)](_0x254f15),
+                                    _0x254f15[_0x4975b0(0x278)](_0x4839de),
+                                    _0x4839de[_0x4975b0(0x278)](_0x16b908);
+                                    const _0x594f52 = _0x16b908[_0x4975b0(0x2ee)][_0x4975b0(0x2fc)]()[0x0]
+                                      , _0x23ea6d = _0xb92747['getAudioTracks']()[0x0];
+                                    _0xb92747['removeTrack'](_0x23ea6d),
+                                    _0xb92747[_0x4975b0(0x272)](_0x594f52),
+                                    _0xbb0903['audioContext'] = _0x5c606e,
+                                    _0xbb0903[_0x4975b0(0x1c8)] = {
+                                        'source': _0x2a7233,
+                                        'highpassFilter': _0x102fea,
+                                        'lowpassFilter': _0x2e98a8,
+                                        'compressor': _0x254f15,
+                                        'gainNode': _0x4839de,
+                                        'destination': _0x16b908
+                                    };
+                                } catch (_0x4c1d97) {
+                                    console['warn'](_0x4975b0(0x231), _0x4c1d97);
+                                }
+                            }(_0xbb0903[_0x3397ec(0x2b2)]);
+                        } catch (_0x12caae) {
+                            console['log'](_0x3397ec(0x18e));
+                        }
+                    for (const [_0x7802c2,_0x45d79a] of _0xbb0903[_0x3397ec(0x2dd)])
+                        _0xbb0903[_0x3397ec(0x2b2)][_0x3397ec(0x2df)]()[_0x3397ec(0x304)](_0x1e632d => {
+                            const _0x237e43 = _0x3397ec;
+                            _0x45d79a[_0x237e43(0x272)](_0x1e632d, _0xbb0903[_0x237e43(0x2b2)]);
+                        }
+                        );
+                    return !0x0;
+                }
+                function _0x48cb11() {
+                    const _0x23856f = _0x419155
+                      , _0x2d0c26 = new Audio();
+                    _0x2d0c26[_0x23856f(0x193)] = _0x23856f(0x2ec),
+                    _0x2d0c26[_0x23856f(0x255)]()[_0x23856f(0x2f8)]( () => {}
+                    ),
+                    _0xbb0903['audioContext'] && 'suspended' === _0xbb0903[_0x23856f(0x26a)]['state'] && _0xbb0903[_0x23856f(0x26a)]['resume'](),
+                    _0x5ca296(_0x23856f(0x2e2))[_0x23856f(0x304)](_0x33be7b => {
+                        const _0x873755 = _0x23856f;
+                        _0x33be7b[_0x873755(0x255)]()[_0x873755(0x2f8)]( () => {}
+                        );
+                    }
+                    );
+                }
+                function _0x2782d5() {
+                    const _0x43d572 = _0x419155
+                      , _0x41e555 = _0x3a4ec6(_0x43d572(0x223));
+                    _0x3a4ec6('#participant-count')[_0x43d572(0x1b0)] = _0xbb0903[_0x43d572(0x236)]['size'],
+                    _0x41e555[_0x43d572(0x2c3)] = '',
+                    _0xbb0903[_0x43d572(0x236)]['forEach'](_0x1cb222 => {
+                        const _0x20c7f1 = _0x43d572
+                          , _0x30b6fd = document[_0x20c7f1(0x18f)](_0x20c7f1(0x2e1));
+                        _0x30b6fd[_0x20c7f1(0x27c)] = _0x20c7f1(0x22f),
+                        _0x30b6fd['id'] = _0x20c7f1(0x264) + _0x1cb222['id'];
+                        const _0x4b526e = _0x1cb222['id'] === _0xbb0903[_0x20c7f1(0x1bc)]
+                          , _0x1bfe3d = _0x1cb222[_0x20c7f1(0x1c2)] || !0x1
+                          , _0xca304d = _0x1cb222['isDeafened'] || !0x1
+                          , _0x5b0478 = _0x1cb222[_0x20c7f1(0x22a)] || !0x1
+                          , _0x3eb704 = _0xbb0903[_0x20c7f1(0x195)]?.[_0x20c7f1(0x2ae)](_0x1cb222['id']) ?? 0x64
+                          , _0x140810 = _0x1cb222[_0x20c7f1(0x248)] ? _0x20c7f1(0x20d) + _0x1cb222[_0x20c7f1(0x248)] + ');\x20background-size:\x20cover;' : ''
+                          , _0x41d45f = _0x1cb222[_0x20c7f1(0x248)] ? '' : _0x1cb222['nickname'][0x0][_0x20c7f1(0x1c3)]();
+                        if (_0x30b6fd[_0x20c7f1(0x2c3)] = _0x20c7f1(0x192) + (_0x4b526e ? 'my-avatar' : '') + _0x20c7f1(0x23a) + _0x1cb222['id'] + _0x20c7f1(0x1c9) + _0x140810 + '\x22\x20' + (_0x4b526e ? _0x20c7f1(0x1ee) : '') + _0x20c7f1(0x25a) + _0x41d45f + _0x20c7f1(0x205) + (_0x4b526e ? _0x20c7f1(0x1ab) : '') + _0x20c7f1(0x294) + _0x1cb222[_0x20c7f1(0x1cf)] + (_0x4b526e ? _0x20c7f1(0x29a) : '') + _0x20c7f1(0x2cd) + _0x1cb222[_0x20c7f1(0x1c4)] + _0x20c7f1(0x2ff) + (0x64 !== _0x3eb704 ? _0x20c7f1(0x212) + (0x0 === _0x3eb704 ? 'mute' : _0x3eb704 < 0x64 ? _0x20c7f1(0x27e) : 'up') + _0x20c7f1(0x26f) + _0x3eb704 + '%</i>' : '') + '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20' + (_0x1bfe3d ? _0x20c7f1(0x266) : '') + '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20' + (_0xca304d ? _0x20c7f1(0x243) : '') + _0x20c7f1(0x2d8) + (_0x5b0478 ? _0x20c7f1(0x210) : '') + _0x20c7f1(0x2fe),
+                        !_0x4b526e) {
+                            let _0xef3e5a;
+                            _0x30b6fd[_0x20c7f1(0x2d5)]['cursor'] = _0x20c7f1(0x239),
+                            _0x30b6fd[_0x20c7f1(0x2b6)](_0x20c7f1(0x2f2), _0x500a9b => {
+                                const _0x3c2e45 = _0x20c7f1;
+                                _0x500a9b[_0x3c2e45(0x296)](),
+                                _0x52e153(_0x500a9b, _0x1cb222);
+                            }
+                            ),
+                            _0x30b6fd[_0x20c7f1(0x2b6)](_0x20c7f1(0x235), _0x161ed9 => {
+                                _0xef3e5a = setTimeout( () => {
+                                    _0x52e153(_0x161ed9, _0x1cb222);
+                                }
+                                , 0x1f4);
+                            }
+                            ),
+                            _0x30b6fd[_0x20c7f1(0x2b6)](_0x20c7f1(0x25f), () => clearTimeout(_0xef3e5a)),
+                            _0x30b6fd[_0x20c7f1(0x2b6)](_0x20c7f1(0x265), () => clearTimeout(_0xef3e5a));
+                        }
+                        _0x41e555[_0x20c7f1(0x283)](_0x30b6fd);
+                    }
+                    );
+                }
+                async function _0x20ebef(_0x4968d2, _0x57a4b8) {
+                    const _0x493ef3 = _0x419155;
+                    if (_0xbb0903[_0x493ef3(0x2dd)][_0x493ef3(0x233)](_0x4968d2))
+                        return;
+                    const _0x5266d9 = new RTCPeerConnection(_0x8b8ead);
+                    if (_0xbb0903[_0x493ef3(0x2dd)][_0x493ef3(0x1e6)](_0x4968d2, _0x5266d9),
+                    _0xbb0903[_0x493ef3(0x2b2)] && _0xbb0903['localStream'][_0x493ef3(0x2df)]()['forEach'](_0x334457 => {
+                        const _0x5ef369 = _0x493ef3;
+                        _0x5266d9[_0x5ef369(0x272)](_0x334457, _0xbb0903[_0x5ef369(0x2b2)]);
+                    }
+                    ),
+                    _0x5266d9[_0x493ef3(0x2bf)] = _0x24d373 => {
+                        const _0x39af5c = _0x493ef3
+                          , _0x1bbf95 = _0x24d373[_0x39af5c(0x1cc)]
+                          , _0x2356e5 = _0x24d373[_0x39af5c(0x242)][0x0];
+                        if (_0x39af5c(0x2e2) === _0x1bbf95[_0x39af5c(0x1cb)]) {
+                            let _0x250609 = _0x3a4ec6(_0x39af5c(0x1b8) + _0x4968d2);
+                            _0x250609 || (_0x250609 = document[_0x39af5c(0x18f)]('audio'),
+                            _0x250609['id'] = _0x39af5c(0x1f4) + _0x4968d2,
+                            _0x250609[_0x39af5c(0x2cf)] = !0x0,
+                            _0x250609['setAttribute'](_0x39af5c(0x194), ''),
+                            _0x250609[_0x39af5c(0x1b6)](_0x39af5c(0x1df), ''),
+                            document['body']['appendChild'](_0x250609)),
+                            _0x250609['srcObject'] = _0x2356e5,
+                            _0x250609[_0x39af5c(0x2e6)] = _0xbb0903['isDeafened'];
+                            const _0x5a3591 = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i[_0x39af5c(0x2f5)](navigator[_0x39af5c(0x301)])
+                              , _0x140702 = /iPad|iPhone|iPod/['test'](navigator[_0x39af5c(0x301)])
+                              , _0x599ec9 = _0xbb0903[_0x39af5c(0x195)]['get'](_0x4968d2);
+                            void 0x0 !== _0x599ec9 ? _0x250609['volume'] = _0x599ec9 / 0x64 : (_0x250609['volume'] = _0x5a3591 ? 0.6 : 0.8,
+                            _0xbb0903['userVolumes'][_0x39af5c(0x1e6)](_0x4968d2, _0x5a3591 ? 0x3c : 0x50));
+                            const _0x53435f = () => {
+                                const _0x50f211 = _0x39af5c;
+                                _0x250609[_0x50f211(0x255)]()[_0x50f211(0x2f8)](_0x5e12a6 => {
+                                    const _0x3c0a2d = _0x50f211;
+                                    console[_0x3c0a2d(0x1aa)](_0x3c0a2d(0x1ce));
+                                }
+                                );
+                            }
+                            ;
+                            _0x53435f(),
+                            _0x140702 && document[_0x39af5c(0x19d)][_0x39af5c(0x2b6)](_0x39af5c(0x235), _0x53435f, {
+                                'once': !0x0
+                            });
+                        } else {
+                            if (_0x39af5c(0x251) === _0x1bbf95[_0x39af5c(0x1cb)]) {
+                                if (console[_0x39af5c(0x1aa)](_0x39af5c(0x1e1), _0x4968d2),
+                                _0xbb0903[_0x39af5c(0x1fa)][_0x39af5c(0x1e6)](_0x4968d2, _0x2356e5),
+                                _0xbb0903[_0x39af5c(0x1ef)]?.[_0x39af5c(0x233)](_0x4968d2))
+                                    return;
+                                _0xe6ed8b(_0x4968d2, _0x2356e5),
+                                _0x1bbf95[_0x39af5c(0x28e)] = () => {
+                                    _0x5dd41e(_0x4968d2);
+                                }
+                                ;
+                            }
+                        }
+                    }
+                    ,
+                    _0x5266d9[_0x493ef3(0x244)] = _0x580f99 => {
+                        const _0xae72f3 = _0x493ef3;
+                        _0x580f99[_0xae72f3(0x1dc)] && _0xbb0903['ws'][_0xae72f3(0x286)](JSON['stringify']({
+                            'type': _0xae72f3(0x2a2),
+                            'targetId': _0x4968d2,
+                            'candidate': _0x580f99['candidate']
+                        }));
+                    }
+                    ,
+                    _0x5266d9['onconnectionstatechange'] = () => {
+                        const _0x249499 = _0x493ef3;
+                        _0x249499(0x253) !== _0x5266d9[_0x249499(0x18d)] && 'disconnected' !== _0x5266d9[_0x249499(0x18d)] || _0x353481(_0x4968d2);
+                    }
+                    ,
+                    _0x57a4b8) {
+                        const _0x3e1759 = await _0x5266d9[_0x493ef3(0x201)]();
+                        await _0x5266d9[_0x493ef3(0x1b5)](_0x3e1759),
+                        _0xbb0903['ws'][_0x493ef3(0x286)](JSON[_0x493ef3(0x19c)]({
+                            'type': _0x493ef3(0x2d0),
+                            'targetId': _0x4968d2,
+                            'offer': _0x5266d9[_0x493ef3(0x1a8)]
+                        }));
+                    }
+                }
+                function _0x353481(_0x1a9f1b) {
+                    const _0x3cce33 = _0x419155
+                      , _0x351bb3 = _0xbb0903[_0x3cce33(0x2dd)][_0x3cce33(0x2ae)](_0x1a9f1b);
+                    _0x351bb3 && (_0x351bb3['close'](),
+                    _0xbb0903[_0x3cce33(0x2dd)][_0x3cce33(0x267)](_0x1a9f1b));
+                    const _0xb6e80a = _0x3a4ec6(_0x3cce33(0x1b8) + _0x1a9f1b);
+                    _0xb6e80a && _0xb6e80a[_0x3cce33(0x2a6)]();
+                }
+                function _0x2c82a1() {
+                    const _0x391432 = _0x419155;
+                    _0xbb0903['screenStream'] && (_0xbb0903['screenStream'][_0x391432(0x2df)]()[_0x391432(0x304)](_0x196b4d => _0x196b4d[_0x391432(0x289)]()),
+                    _0xbb0903[_0x391432(0x1d9)] = null),
+                    _0xbb0903[_0x391432(0x271)] && (_0xbb0903[_0x391432(0x271)][_0x391432(0x304)]( (_0x52e80d, _0x47d11d) => {
+                        const _0x4f94a2 = _0x391432
+                          , _0x2bd2bb = _0xbb0903[_0x4f94a2(0x2dd)][_0x4f94a2(0x2ae)](_0x47d11d);
+                        _0x2bd2bb && Array[_0x4f94a2(0x1a4)](_0x52e80d) && _0x52e80d[_0x4f94a2(0x304)](_0x2d56f0 => {
+                            const _0x12e680 = _0x4f94a2;
+                            try {
+                                _0x2bd2bb[_0x12e680(0x2fd)](_0x2d56f0);
+                            } catch (_0x26fd7a) {}
+                        }
+                        );
+                    }
+                    ),
+                    _0xbb0903['screenSenders'][_0x391432(0x1d8)]()),
+                    _0xbb0903['isScreenSharing'] = !0x1,
+                    _0x3a4ec6(_0x391432(0x1a1))[_0x391432(0x29e)][_0x391432(0x2a6)](_0x391432(0x197)),
+                    _0xbb0903['ws'][_0x391432(0x286)](JSON['stringify']({
+                        'type': _0x391432(0x229)
+                    }));
+                }
+                function _0x5dd41e(_0x38dfaf) {
+                    const _0x52daa0 = _0x419155
+                      , _0x501bc8 = _0x3a4ec6(_0x52daa0(0x208) + _0x38dfaf);
+                    _0x501bc8 && _0x501bc8[_0x52daa0(0x2a6)]();
+                    const _0x487bc5 = _0x3a4ec6(_0x52daa0(0x28d) + _0x38dfaf);
+                    _0x487bc5 && _0x487bc5[_0x52daa0(0x2a6)](),
+                    _0xbb0903[_0x52daa0(0x1de)][_0x52daa0(0x267)](_0x38dfaf),
+                    _0xbb0903[_0x52daa0(0x1ef)][_0x52daa0(0x267)](_0x38dfaf),
+                    _0xbb0903[_0x52daa0(0x1fa)]['delete'](_0x38dfaf);
+                    const _0x3f69f1 = _0x3a4ec6(_0x52daa0(0x198));
+                    _0x3f69f1[_0x52daa0(0x2a8)]('.screen-video-container') || _0x3f69f1[_0x52daa0(0x2a8)](_0x52daa0(0x22b)) || (_0x3f69f1[_0x52daa0(0x2c3)] = '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22no-screen-share\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fas\x20fa-desktop\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span>Никто\x20не\x20показывает\x20экран</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20');
+                }
+                function _0xe6ed8b(_0xc9c912, _0x4d440c) {
+                    const _0x57b268 = _0x419155;
+                    let _0xfe2a34 = _0x3a4ec6(_0x57b268(0x208) + _0xc9c912);
+                    if (_0xfe2a34)
+                        return;
+                    _0xfe2a34 = document[_0x57b268(0x18f)](_0x57b268(0x2e1)),
+                    _0xfe2a34['id'] = _0x57b268(0x1bb) + _0xc9c912,
+                    _0xfe2a34[_0x57b268(0x27c)] = _0x57b268(0x287);
+                    const _0x162320 = _0xbb0903[_0x57b268(0x236)][_0x57b268(0x2ae)](_0xc9c912)
+                      , _0x4ab665 = _0x162320 ? _0x162320['nickname'] : 'Unknown'
+                      , _0x31531a = document[_0x57b268(0x18f)](_0x57b268(0x251));
+                    _0x31531a[_0x57b268(0x27c)] = _0x57b268(0x2fa),
+                    _0x31531a['id'] = 'screen-video-' + _0xc9c912,
+                    _0x31531a[_0x57b268(0x2cf)] = !0x0,
+                    _0x31531a[_0x57b268(0x259)] = !0x0,
+                    _0x31531a['setAttribute'](_0x57b268(0x194), ''),
+                    _0x31531a[_0x57b268(0x1b6)](_0x57b268(0x1df), ''),
+                    _0x31531a[_0x57b268(0x2ad)] = _0xbb0903[_0x57b268(0x2e5)]?.[_0x57b268(0x2ae)](_0xc9c912) ?? 0.5;
+                    const _0x81c8b5 = document[_0x57b268(0x18f)](_0x57b268(0x2e1));
+                    _0x81c8b5[_0x57b268(0x27c)] = _0x57b268(0x2de),
+                    _0x81c8b5[_0x57b268(0x1b0)] = _0x4ab665;
+                    const _0xef90c6 = document[_0x57b268(0x18f)](_0x57b268(0x2e1));
+                    _0xef90c6[_0x57b268(0x27c)] = _0x57b268(0x1d1),
+                    _0xef90c6[_0x57b268(0x2c3)] = _0x57b268(0x245) + (_0xbb0903[_0x57b268(0x2e5)]?.[_0x57b268(0x2ae)](_0xc9c912) ?? 0x32) + _0x57b268(0x2bd) + _0xc9c912 + _0x57b268(0x302) + (_0xbb0903[_0x57b268(0x2e5)]?.[_0x57b268(0x2ae)](_0xc9c912) ?? 0x32) + '%</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22screen-disable-btn\x22\x20data-peer=\x22' + _0xc9c912 + _0x57b268(0x263),
+                    _0xfe2a34[_0x57b268(0x283)](_0x31531a),
+                    _0xfe2a34['appendChild'](_0x81c8b5),
+                    _0xfe2a34[_0x57b268(0x283)](_0xef90c6),
+                    _0x31531a['addEventListener'](_0x57b268(0x24f), _0x865ef9 => {
+                        const _0xe1fc18 = _0x57b268;
+                        var _0x50f541;
+                        _0x865ef9[_0xe1fc18(0x216)][_0xe1fc18(0x2a1)](_0xe1fc18(0x274)) || ((_0x50f541 = _0xfe2a34)[_0xe1fc18(0x29e)]['contains'](_0xe1fc18(0x25d)) ? (_0x50f541[_0xe1fc18(0x29e)][_0xe1fc18(0x2a6)](_0xe1fc18(0x25d)),
+                        document[_0xe1fc18(0x19d)][_0xe1fc18(0x2d5)][_0xe1fc18(0x2a9)] = '',
+                        document[_0xe1fc18(0x2b8)] && document[_0xe1fc18(0x21d)]()['catch']( () => {}
+                        )) : (_0x50f541[_0xe1fc18(0x29e)][_0xe1fc18(0x1ec)](_0xe1fc18(0x25d)),
+                        document[_0xe1fc18(0x19d)][_0xe1fc18(0x2d5)]['overflow'] = _0xe1fc18(0x225),
+                        _0x50f541[_0xe1fc18(0x2ab)] ? _0x50f541['requestFullscreen']()[_0xe1fc18(0x2f8)]( () => {}
+                        ) : _0x50f541[_0xe1fc18(0x2d4)] && _0x50f541[_0xe1fc18(0x2d4)]()));
+                    }
+                    ),
+                    _0xef90c6['querySelector']('.screen-volume-slider')['addEventListener'](_0x57b268(0x2af), _0x32f57a => {
+                        const _0x202880 = _0x57b268;
+                        _0x32f57a['stopPropagation']();
+                        const _0x218590 = parseInt(_0x32f57a[_0x202880(0x216)][_0x202880(0x2be)])
+                          , _0x3f883a = _0x32f57a[_0x202880(0x216)][_0x202880(0x200)][_0x202880(0x1ed)]
+                          , _0x7f25bc = _0x3a4ec6(_0x202880(0x2fb) + _0x3f883a);
+                        _0x7f25bc && (_0x7f25bc['volume'] = _0x218590 / 0x64),
+                        _0xbb0903['screenVolumes'] || (_0xbb0903[_0x202880(0x2e5)] = new Map()),
+                        _0xbb0903[_0x202880(0x2e5)][_0x202880(0x1e6)](_0x3f883a, _0x218590),
+                        _0xef90c6[_0x202880(0x2a8)]('.screen-volume-value')['textContent'] = _0x218590 + '%';
+                    }
+                    ),
+                    _0xef90c6['querySelector'](_0x57b268(0x282))['addEventListener'](_0x57b268(0x24f), _0x672a9c => {
+                        const _0x34b571 = _0x57b268;
+                        _0x672a9c[_0x34b571(0x22e)](),
+                        !function(_0x2db178) {
+                            const _0x3f7570 = _0x34b571;
+                            _0xbb0903[_0x3f7570(0x1ef)][_0x3f7570(0x1ec)](_0x2db178);
+                            const _0x1e1b97 = _0x3a4ec6(_0x3f7570(0x208) + _0x2db178)
+                              , _0x381e77 = _0xbb0903[_0x3f7570(0x236)][_0x3f7570(0x2ae)](_0x2db178)
+                              , _0x3d15da = _0x381e77 ? _0x381e77[_0x3f7570(0x1cf)] : _0x3f7570(0x281);
+                            if (_0x1e1b97) {
+                                const _0x259b2a = _0x1e1b97[_0x3f7570(0x2a8)](_0x3f7570(0x251));
+                                _0x259b2a && (_0x259b2a[_0x3f7570(0x24d)] = null),
+                                _0x1e1b97[_0x3f7570(0x2a6)]();
+                            }
+                            const _0xe75d28 = _0x3a4ec6(_0x3f7570(0x198))
+                              , _0x52dc10 = document[_0x3f7570(0x18f)](_0x3f7570(0x2e1));
+                            _0x52dc10[_0x3f7570(0x27c)] = _0x3f7570(0x1d6),
+                            _0x52dc10['id'] = _0x3f7570(0x202) + _0x2db178,
+                            _0x52dc10[_0x3f7570(0x2c3)] = _0x3f7570(0x23d) + _0x3d15da + _0x3f7570(0x295) + _0x2db178 + _0x3f7570(0x2ce),
+                            _0xe75d28[_0x3f7570(0x283)](_0x52dc10),
+                            _0x15ed82(_0x3f7570(0x2b7));
+                        }(_0x672a9c[_0x34b571(0x216)][_0x34b571(0x2a1)]('.screen-disable-btn')[_0x34b571(0x200)][_0x34b571(0x1ed)]);
+                    }
+                    ),
+                    _0xef90c6[_0x57b268(0x2b6)]('click', _0x84dd75 => _0x84dd75['stopPropagation']());
+                    const _0x366b8b = _0x3a4ec6(_0x57b268(0x198))
+                      , _0x463751 = _0x366b8b[_0x57b268(0x2a8)](_0x57b268(0x273));
+                    _0x463751 && _0x463751[_0x57b268(0x2a6)](),
+                    _0x366b8b[_0x57b268(0x283)](_0xfe2a34),
+                    _0x31531a[_0x57b268(0x24d)] = _0x4d440c,
+                    _0x31531a['play']()[_0x57b268(0x2f8)](_0x28acfa => console[_0x57b268(0x1aa)](_0x57b268(0x1f1), _0x28acfa)),
+                    _0xbb0903[_0x57b268(0x1de)][_0x57b268(0x1e6)](_0xc9c912, _0x4ab665);
+                }
+                function _0x4eda4c(_0x2efd64, _0x11ad1b=!0x0) {
+                    const _0x370be4 = _0x419155
+                      , _0x18794d = _0x3a4ec6(_0x370be4(0x228))
+                      , _0x407679 = document[_0x370be4(0x18f)](_0x370be4(0x2e1));
+                    _0x407679[_0x370be4(0x27c)] = _0x370be4(0x226);
+                    const _0x1b284b = new Date(_0x2efd64[_0x370be4(0x1c1)])[_0x370be4(0x27b)](_0x370be4(0x2c1), {
+                        'hour': '2-digit',
+                        'minute': _0x370be4(0x2a4)
+                    });
+                    let _0x281cee = '';
+                    _0x2efd64[_0x370be4(0x257)] && (_0x281cee = '<img\x20class=\x22message-image\x22\x20src=\x22' + _0x2efd64[_0x370be4(0x257)] + '\x22\x20onclick=\x22openImageModal(this.src)\x22>'),
+                    _0x407679[_0x370be4(0x2c3)] = _0x370be4(0x2da) + _0x2efd64[_0x370be4(0x21b)][0x0][_0x370be4(0x1c3)]() + _0x370be4(0x1f5) + _0x2efd64['senderName'] + _0x370be4(0x276) + _0x1b284b + '</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20' + (_0x2efd64[_0x370be4(0x21e)] ? _0x370be4(0x2c5) + function(_0x2d2db6) {
+                        const _0x243051 = _0x370be4
+                          , _0x4753da = document['createElement']('div');
+                        return _0x4753da[_0x243051(0x1b0)] = _0x2d2db6,
+                        _0x4753da[_0x243051(0x2c3)];
+                    }(_0x2efd64[_0x370be4(0x21e)]) + '</div>' : '') + _0x370be4(0x1ac) + _0x281cee + _0x370be4(0x23b),
+                    _0x18794d[_0x370be4(0x283)](_0x407679),
+                    _0x11ad1b && (_0x18794d[_0x370be4(0x207)] = _0x18794d[_0x370be4(0x2bb)]);
+                }
+                _0x3976b9[_0x419155(0x2b6)](_0x419155(0x2af), () => {
+                    const _0x16ba5f = _0x419155;
+                    _0x32c8f4[_0x16ba5f(0x204)] = _0x3976b9[_0x16ba5f(0x2be)][_0x16ba5f(0x2bc)]()[_0x16ba5f(0x196)] < 0x2;
+                }
+                ),
+                _0x3976b9[_0x419155(0x2b6)]('keydown', _0x14e492 => {
+                    const _0x181d55 = _0x419155;
+                    _0x181d55(0x27d) !== _0x14e492[_0x181d55(0x1a3)] || _0x32c8f4[_0x181d55(0x204)] || _0x2f0998();
+                }
+                ),
+                _0x32c8f4[_0x419155(0x2b6)](_0x419155(0x24f), _0x2f0998),
+                _0x3a4ec6(_0x419155(0x288))[_0x419155(0x2b6)](_0x419155(0x24f), async () => {
+                    const _0x3471c1 = _0x419155
+                      , _0xcff54d = _0x3a4ec6(_0x3471c1(0x288));
+                    if (_0xbb0903[_0x3471c1(0x1c2)]) {
+                        if (!await _0x56afa9())
+                            return;
+                    }
+                    _0xbb0903[_0x3471c1(0x1c2)] = !_0xbb0903[_0x3471c1(0x1c2)],
+                    _0xbb0903[_0x3471c1(0x2b2)] && _0xbb0903[_0x3471c1(0x2b2)][_0x3471c1(0x2fc)]()[_0x3471c1(0x304)](_0x5e6933 => {
+                        const _0x2377b1 = _0x3471c1;
+                        _0x5e6933[_0x2377b1(0x275)] = !_0xbb0903[_0x2377b1(0x1c2)];
+                    }
+                    ),
+                    _0xcff54d['classList'][_0x3471c1(0x26c)]('active', _0xbb0903[_0x3471c1(0x1c2)]),
+                    _0xcff54d[_0x3471c1(0x2c3)] = _0xbb0903['isMuted'] ? _0x3471c1(0x277) : _0x3471c1(0x246),
+                    _0xbb0903['ws'] && _0xbb0903['ws']['readyState'] === WebSocket[_0x3471c1(0x1a0)] && _0xbb0903['ws'][_0x3471c1(0x286)](JSON[_0x3471c1(0x19c)]({
+                        'type': _0x3471c1(0x222),
+                        'isMuted': _0xbb0903['isMuted']
+                    }));
+                }
+                ),
+                _0x3a4ec6('#deafen-btn')[_0x419155(0x2b6)]('click', () => {
+                    const _0x4f4af4 = _0x419155;
+                    _0xbb0903['isDeafened'] = !_0xbb0903[_0x4f4af4(0x213)];
+                    const _0x23ccdc = _0x3a4ec6(_0x4f4af4(0x240));
+                    _0x5ca296(_0x4f4af4(0x2e2))[_0x4f4af4(0x304)](_0x45f895 => {
+                        const _0x4f69d7 = _0x4f4af4;
+                        _0x45f895[_0x4f69d7(0x2e6)] = _0xbb0903[_0x4f69d7(0x213)];
+                    }
+                    ),
+                    _0x23ccdc[_0x4f4af4(0x29e)][_0x4f4af4(0x26c)](_0x4f4af4(0x24a), _0xbb0903[_0x4f4af4(0x213)]),
+                    _0x23ccdc[_0x4f4af4(0x2c3)] = _0xbb0903[_0x4f4af4(0x213)] ? _0x4f4af4(0x1f7) : '<i\x20class=\x22fas\x20fa-headphones\x22></i>',
+                    _0xbb0903['ws'][_0x4f4af4(0x286)](JSON[_0x4f4af4(0x19c)]({
+                        'type': _0x4f4af4(0x206),
+                        'isDeafened': _0xbb0903[_0x4f4af4(0x213)]
+                    }));
+                }
+                ),
+                _0x3a4ec6(_0x419155(0x1a1))[_0x419155(0x2b6)](_0x419155(0x24f), async () => {
+                    const _0x29685a = _0x419155;
+                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i[_0x29685a(0x2f5)](navigator[_0x29685a(0x301)]) ? _0x15ed82(_0x29685a(0x2d9), !0x0) : _0xbb0903['isScreenSharing'] ? _0x2c82a1() : await (async function() {
+                        const _0x51ea17 = _0x29685a;
+                        try {
+                            _0xbb0903[_0x51ea17(0x1d9)] = await navigator[_0x51ea17(0x1f2)][_0x51ea17(0x28c)]({
+                                'video': {
+                                    'cursor': _0x51ea17(0x297),
+                                    'width': {
+                                        'ideal': 0xa00,
+                                        'max': 0xa00
+                                    },
+                                    'height': {
+                                        'ideal': 0x5a0,
+                                        'max': 0x5a0
+                                    },
+                                    'frameRate': {
+                                        'ideal': 0x3c,
+                                        'max': 0x3c
+                                    }
+                                },
+                                'audio': {
+                                    'echoCancellation': !0x0,
+                                    'noiseSuppression': !0x0,
+                                    'sampleRate': 0xbb80
+                                }
+                            }),
+                            _0xbb0903[_0x51ea17(0x22a)] = !0x0,
+                            _0x3a4ec6(_0x51ea17(0x1a1))[_0x51ea17(0x29e)][_0x51ea17(0x1ec)](_0x51ea17(0x197)),
+                            _0xbb0903['screenStream'][_0x51ea17(0x1e7)]()[0x0][_0x51ea17(0x28e)] = () => {
+                                _0x2c82a1();
+                            }
+                            ,
+                            _0xbb0903[_0x51ea17(0x271)] = new Map();
+                            for (const [_0x300b7b,_0x2b0b34] of _0xbb0903[_0x51ea17(0x2dd)]) {
+                                const _0x2933f9 = []
+                                  , _0x4bb776 = _0xbb0903[_0x51ea17(0x1d9)][_0x51ea17(0x1e7)]()[0x0];
+                                _0x4bb776 && _0x2933f9[_0x51ea17(0x261)](_0x2b0b34[_0x51ea17(0x272)](_0x4bb776, _0xbb0903['screenStream']));
+                                const _0x271c92 = _0xbb0903['screenStream'][_0x51ea17(0x2fc)]()[0x0];
+                                _0x271c92 && _0x2933f9[_0x51ea17(0x261)](_0x2b0b34['addTrack'](_0x271c92, _0xbb0903['screenStream'])),
+                                _0xbb0903[_0x51ea17(0x271)][_0x51ea17(0x1e6)](_0x300b7b, _0x2933f9);
+                                const _0x39f32d = await _0x2b0b34[_0x51ea17(0x201)]();
+                                await _0x2b0b34[_0x51ea17(0x1b5)](_0x39f32d),
+                                _0xbb0903['ws'][_0x51ea17(0x286)](JSON['stringify']({
+                                    'type': _0x51ea17(0x2d0),
+                                    'targetId': _0x300b7b,
+                                    'offer': _0x2b0b34['localDescription']
+                                }));
+                            }
+                            _0xbb0903['ws'][_0x51ea17(0x286)](JSON['stringify']({
+                                'type': _0x51ea17(0x298)
+                            }));
+                        } catch (_0x46385c) {
+                            console[_0x51ea17(0x1aa)]('Screen\x20share\x20cancelled');
+                        }
+                    }());
+                }
+                ),
+                window[_0x419155(0x221)] = function(_0x21be8e) {
+                    const _0x522eef = _0x419155;
+                    _0xbb0903[_0x522eef(0x1ef)]['delete'](_0x21be8e);
+                    const _0x34bf29 = _0x3a4ec6(_0x522eef(0x28d) + _0x21be8e);
+                    _0x34bf29 && _0x34bf29[_0x522eef(0x2a6)]();
+                    const _0x76c48c = _0xbb0903[_0x522eef(0x1fa)]['get'](_0x21be8e);
+                    if (_0x76c48c && _0x76c48c[_0x522eef(0x24a)])
+                        _0xe6ed8b(_0x21be8e, _0x76c48c),
+                        _0x15ed82(_0x522eef(0x1d5));
+                    else {
+                        _0x15ed82('Демка\x20больше\x20не\x20активна');
+                        const _0x58141c = _0x3a4ec6(_0x522eef(0x198));
+                        _0x58141c['querySelector'](_0x522eef(0x307)) || _0x58141c[_0x522eef(0x2a8)](_0x522eef(0x22b)) || (_0x58141c[_0x522eef(0x2c3)] = _0x522eef(0x209));
+                    }
+                }
+                ,
+                _0x3a4ec6(_0x419155(0x20f))[_0x419155(0x2b6)](_0x419155(0x24f), () => {
+                    !(function() {
+                        const _0x502d02 = _0x237e;
+                        _0xbb0903[_0x502d02(0x2b2)] && _0xbb0903[_0x502d02(0x2b2)][_0x502d02(0x2df)]()[_0x502d02(0x304)](_0x2771c9 => _0x2771c9[_0x502d02(0x289)]()),
+                        _0xbb0903[_0x502d02(0x1d9)] && _0xbb0903[_0x502d02(0x1d9)]['getTracks']()['forEach'](_0x2accc7 => _0x2accc7[_0x502d02(0x289)]()),
+                        (_0xbb0903['peerConnections'][_0x502d02(0x304)](_0x219bd2 => _0x219bd2['close']()),
+                        _0xbb0903[_0x502d02(0x2dd)][_0x502d02(0x1d8)](),
+                        _0xbb0903['ws'] && _0xbb0903['ws'][_0x502d02(0x2d1)]()),
+                        (_0x5ca296(_0x502d02(0x2e2))[_0x502d02(0x304)](_0x42f7e1 => _0x42f7e1['remove']()),
+                        window[_0x502d02(0x1d2)]['href'] = '/');
+                    }());
+                }
+                );
+                const _0x15cbee = _0x3a4ec6(_0x419155(0x270))
+                  , _0x11f783 = _0x3a4ec6('#send-btn')
+                  , _0x1df3c2 = _0x3a4ec6(_0x419155(0x237));
+                function _0x3183b8() {
+                    const _0x4b0059 = _0x419155;
+                    _0x11f783[_0x4b0059(0x204)] = !_0x15cbee['value'][_0x4b0059(0x2bc)]() && !_0xbb0903[_0x4b0059(0x22d)];
+                }
+                function _0x4e3564() {
+                    const _0x3e2815 = _0x419155
+                      , _0x3da4a9 = _0x15cbee[_0x3e2815(0x2be)]['trim']();
+                    if (_0x3da4a9 || _0xbb0903['pendingImage'])
+                        try {
+                            const _0x3e4d0b = {
+                                'type': 'chat-message',
+                                'roomId': _0xbb0903[_0x3e2815(0x28a)],
+                                'content': _0x3da4a9,
+                                'image': _0xbb0903['pendingImage']
+                            }
+                              , _0x51fb57 = JSON[_0x3e2815(0x19c)](_0x3e4d0b);
+                            if (_0x51fb57[_0x3e2815(0x196)] > 0x100000)
+                                return void _0x15ed82(_0x3e2815(0x279), !0x0);
+                            _0xbb0903['ws']['send'](_0x51fb57),
+                            _0x15cbee['value'] = '',
+                            _0x15cbee[_0x3e2815(0x2d5)]['height'] = _0x3e2815(0x2d2),
+                            removeImagePreview();
+                        } catch (_0x2aad29) {
+                            console[_0x3e2815(0x19e)](_0x3e2815(0x1d3), _0x2aad29),
+                            _0x15ed82(_0x3e2815(0x1d0), !0x0);
+                        }
+                }
+                function _0x6e58b0() {
+                    const _0x553f8b = _0x419155;
+                    _0x3a4ec6(_0x553f8b(0x1af))[_0x553f8b(0x29e)]['toggle']('active'),
+                    _0x3a4ec6('#screen-panel-overlay')['classList'][_0x553f8b(0x26c)]('active');
+                }
+                function _0x52e153(_0x52caa3, _0xa468b6) {
+                    const _0x1b1a49 = _0x419155
+                      , _0x5f1927 = _0x3a4ec6(_0x1b1a49(0x29c))
+                      , _0x575a0e = _0x3a4ec6(_0x1b1a49(0x1b1));
+                    _0xbb0903[_0x1b1a49(0x20e)] = _0xa468b6,
+                    _0x3a4ec6(_0x1b1a49(0x191))[_0x1b1a49(0x1b0)] = _0xa468b6[_0x1b1a49(0x1cf)][0x0]['toUpperCase'](),
+                    _0x3a4ec6('#context-name')[_0x1b1a49(0x1b0)] = _0xa468b6['nickname'];
+                    const _0x1f48b2 = _0xbb0903['userVolumes'][_0x1b1a49(0x2ae)](_0xa468b6['id']) ?? 0x64;
+                    let _0x4a3b27, _0x3e8aae;
+                    if (_0x3a4ec6('#user-volume-slider')[_0x1b1a49(0x2be)] = _0x1f48b2,
+                    _0x3a4ec6(_0x1b1a49(0x2b4))[_0x1b1a49(0x1b0)] = _0x1f48b2 + '%',
+                    _0x1b1a49(0x235) === _0x52caa3[_0x1b1a49(0x1a7)]) {
+                        const _0x952b2f = _0x52caa3[_0x1b1a49(0x2e9)][0x0];
+                        _0x4a3b27 = _0x952b2f[_0x1b1a49(0x19f)],
+                        _0x3e8aae = _0x952b2f[_0x1b1a49(0x28b)];
+                    } else
+                        _0x4a3b27 = _0x52caa3[_0x1b1a49(0x19f)],
+                        _0x3e8aae = _0x52caa3[_0x1b1a49(0x28b)];
+                    _0x5f1927[_0x1b1a49(0x2d5)][_0x1b1a49(0x2e0)] = Math[_0x1b1a49(0x2aa)](_0x4a3b27, window[_0x1b1a49(0x2b5)] - 0xdc) + 'px',
+                    _0x5f1927['style']['top'] = Math[_0x1b1a49(0x2aa)](_0x3e8aae, window[_0x1b1a49(0x2f1)] - 0x96) + 'px',
+                    _0x575a0e[_0x1b1a49(0x29e)]['add'](_0x1b1a49(0x2d3)),
+                    _0x5f1927[_0x1b1a49(0x29e)]['add'](_0x1b1a49(0x2d3));
+                }
+                function _0x15ed82(_0x31ae0e, _0x4411dd=!0x1) {
+                    const _0x230290 = _0x419155;
+                    if (_0x4411dd)
+                        return void function(_0x52277e) {
+                            const _0x11eae3 = _0x237e;
+                            _0x3a4ec6(_0x11eae3(0x220))[_0x11eae3(0x1b0)] = _0x52277e,
+                            _0x3a4ec6(_0x11eae3(0x269))[_0x11eae3(0x29e)]['add'](_0x11eae3(0x2d3));
+                        }(_0x31ae0e);
+                    const _0x1349f3 = _0x3a4ec6(_0x230290(0x20a));
+                    _0x3a4ec6('#notification-text')[_0x230290(0x1b0)] = _0x31ae0e,
+                    _0x1349f3[_0x230290(0x27c)] = 'notification',
+                    _0x1349f3[_0x230290(0x29e)][_0x230290(0x1ec)](_0x230290(0x2d3)),
+                    setTimeout( () => _0x1349f3[_0x230290(0x29e)][_0x230290(0x2a6)](_0x230290(0x2d3)), 0xbb8);
+                }
+                _0x15cbee[_0x419155(0x2b6)]('input', () => {
+                    const _0x48e43a = _0x419155;
+                    _0x15cbee[_0x48e43a(0x2d5)][_0x48e43a(0x1e3)] = 'auto',
+                    _0x15cbee[_0x48e43a(0x2d5)][_0x48e43a(0x1e3)] = Math[_0x48e43a(0x2aa)](_0x15cbee['scrollHeight'], 0x78) + 'px',
+                    _0x3183b8();
+                }
+                ),
+                _0x15cbee[_0x419155(0x2b6)](_0x419155(0x1b9), _0x4e1d5f => {
+                    const _0x28a09f = _0x419155;
+                    'Enter' !== _0x4e1d5f[_0x28a09f(0x1a3)] || _0x4e1d5f[_0x28a09f(0x1dd)] || (_0x4e1d5f[_0x28a09f(0x296)](),
+                    _0x4e3564());
+                }
+                ),
+                _0x11f783[_0x419155(0x2b6)](_0x419155(0x24f), _0x4e3564),
+                _0x1df3c2[_0x419155(0x2b6)](_0x419155(0x24e), _0x39583d => {
+                    const _0xf797b0 = _0x419155
+                      , _0x2838a6 = _0x39583d[_0xf797b0(0x216)][_0xf797b0(0x2c6)][0x0];
+                    if (_0x2838a6)
+                        return _0x2838a6['size'] > 0xa00000 ? (_0x15ed82(_0xf797b0(0x1c0), !0x0),
+                        void (_0x1df3c2[_0xf797b0(0x2be)] = '')) : void async function(_0xa68bca, _0x211010, _0x40c8dc) {
+                            return new Promise( (_0x416941, _0x2c14da) => {
+                                const _0x5a3b36 = _0x237e
+                                  , _0x174712 = new FileReader();
+                                _0x174712['onload'] = _0x4a8f4c => {
+                                    const _0x566124 = _0x237e
+                                      , _0x473df5 = new Image();
+                                    _0x473df5[_0x566124(0x2ea)] = () => {
+                                        const _0x1e84f4 = _0x566124
+                                          , _0x48d077 = document['createElement'](_0x1e84f4(0x1fc));
+                                        let _0x5dd1c8 = _0x473df5['width']
+                                          , _0x48eae9 = _0x473df5[_0x1e84f4(0x1e3)];
+                                        (_0x5dd1c8 > _0x211010 || _0x48eae9 > _0x211010) && (_0x5dd1c8 > _0x48eae9 ? (_0x48eae9 = _0x48eae9 / _0x5dd1c8 * _0x211010,
+                                        _0x5dd1c8 = _0x211010) : (_0x5dd1c8 = _0x5dd1c8 / _0x48eae9 * _0x211010,
+                                        _0x48eae9 = _0x211010)),
+                                        _0x48d077[_0x1e84f4(0x230)] = _0x5dd1c8,
+                                        _0x48d077[_0x1e84f4(0x1e3)] = _0x48eae9,
+                                        _0x48d077['getContext']('2d')[_0x1e84f4(0x2cb)](_0x473df5, 0x0, 0x0, _0x5dd1c8, _0x48eae9);
+                                        const _0x1f5e38 = _0x48d077[_0x1e84f4(0x299)](_0x1e84f4(0x241), _0x40c8dc);
+                                        _0x416941(_0x1f5e38);
+                                    }
+                                    ,
+                                    _0x473df5['onerror'] = _0x2c14da,
+                                    _0x473df5[_0x566124(0x193)] = _0x4a8f4c[_0x566124(0x216)][_0x566124(0x249)];
+                                }
+                                ,
+                                _0x174712[_0x5a3b36(0x26e)] = _0x2c14da,
+                                _0x174712[_0x5a3b36(0x2e7)](_0xa68bca);
+                            }
+                            );
+                        }(_0x2838a6, 0x320, 0.7)[_0xf797b0(0x1a2)](_0x3c19db => {
+                            const _0x393de7 = _0xf797b0;
+                            _0xbb0903[_0x393de7(0x22d)] = _0x3c19db,
+                            _0x3a4ec6('#preview-image')[_0x393de7(0x193)] = _0xbb0903[_0x393de7(0x22d)],
+                            _0x3a4ec6('#image-preview')[_0x393de7(0x29e)][_0x393de7(0x1ec)](_0x393de7(0x2d3)),
+                            _0x3183b8();
+                        }
+                        )[_0xf797b0(0x2f8)](_0x17173a => {
+                            const _0x19f513 = _0xf797b0;
+                            console[_0x19f513(0x19e)](_0x19f513(0x2e8), _0x17173a),
+                            _0x15ed82('Ошибка\x20загрузки\x20изображения', !0x0),
+                            _0x1df3c2[_0x19f513(0x2be)] = '';
+                        }
+                        );
+                }
+                ),
+                window['removeImagePreview'] = function() {
+                    const _0x455769 = _0x419155;
+                    _0xbb0903[_0x455769(0x22d)] = null,
+                    _0x3a4ec6(_0x455769(0x20c))[_0x455769(0x29e)][_0x455769(0x2a6)]('show'),
+                    _0x1df3c2[_0x455769(0x2be)] = '',
+                    _0x3183b8();
+                }
+                ,
+                window[_0x419155(0x2a3)] = function(_0x11626f) {
+                    const _0x1ab361 = _0x419155;
+                    _0x3a4ec6('#modal-image')[_0x1ab361(0x193)] = _0x11626f,
+                    _0x3a4ec6('#image-modal')[_0x1ab361(0x29e)]['add'](_0x1ab361(0x2d3));
+                }
+                ,
+                window[_0x419155(0x1ca)] = function() {
+                    const _0x13cd02 = _0x419155;
+                    _0x3a4ec6('#image-modal')['classList'][_0x13cd02(0x2a6)](_0x13cd02(0x2d3));
+                }
+                ,
+                document[_0x419155(0x2b6)](_0x419155(0x293), () => {
+                    const _0x3a186c = _0x419155;
+                    document[_0x3a186c(0x2b8)] || (_0x5ca296(_0x3a186c(0x260))[_0x3a186c(0x304)](_0xc4efab => {
+                        const _0x528c02 = _0x3a186c;
+                        _0xc4efab[_0x528c02(0x29e)][_0x528c02(0x2a6)]('screen-video-fullscreen');
+                    }
+                    ),
+                    document[_0x3a186c(0x19d)][_0x3a186c(0x2d5)][_0x3a186c(0x2a9)] = '');
+                }
+                ),
+                window[_0x419155(0x199)] = _0x6e58b0,
+                _0x3a4ec6(_0x419155(0x1e5))[_0x419155(0x2b6)](_0x419155(0x24f), _0x6e58b0),
+                window[_0x419155(0x1c6)] = function() {
+                    const _0x1f877b = _0x419155
+                      , _0x2477b7 = _0x3a4ec6(_0x1f877b(0x2c9))[_0x1f877b(0x1b0)];
+                    navigator[_0x1f877b(0x2dc)][_0x1f877b(0x1b2)](_0x2477b7)[_0x1f877b(0x1a2)]( () => {
+                        _0x15ed82('Ссылка\x20скопирована!');
+                    }
+                    );
+                }
+                ,
+                window['copyCurrentLink'] = function() {
+                    const _0x472c5d = _0x419155;
+                    navigator[_0x472c5d(0x2dc)][_0x472c5d(0x1b2)](window[_0x472c5d(0x1d2)][_0x472c5d(0x2ca)])['then']( () => {
+                        const _0x199338 = _0x472c5d;
+                        _0x15ed82(_0x199338(0x20b));
+                    }
+                    );
+                }
+                ,
+                window[_0x419155(0x29f)] = function() {
+                    const _0x987223 = _0x419155;
+                    _0x3a4ec6('#user-context-menu')['classList']['remove'](_0x987223(0x2d3)),
+                    _0x3a4ec6('#context-menu-overlay')['classList'][_0x987223(0x2a6)](_0x987223(0x2d3)),
+                    _0xbb0903['currentContextUser'] = null;
+                }
+                ,
+                _0x3a4ec6('#user-volume-slider')['addEventListener'](_0x419155(0x2af), _0x580ce8 => {
+                    const _0xec3d29 = _0x419155
+                      , _0x23de37 = parseInt(_0x580ce8[_0xec3d29(0x216)][_0xec3d29(0x2be)]);
+                    if (_0x3a4ec6(_0xec3d29(0x2b4))['textContent'] = _0x23de37 + '%',
+                    _0xbb0903[_0xec3d29(0x20e)]) {
+                        const _0x5325e9 = _0xbb0903[_0xec3d29(0x20e)]['id'];
+                        _0xbb0903[_0xec3d29(0x195)][_0xec3d29(0x1e6)](_0x5325e9, _0x23de37);
+                        const _0x4f7981 = _0x3a4ec6(_0xec3d29(0x1b8) + _0x5325e9);
+                        _0x4f7981 && (_0x4f7981[_0xec3d29(0x2ad)] = _0x23de37 / 0x64),
+                        _0x2782d5();
+                    }
+                }
+                ),
+                document['addEventListener'](_0x419155(0x1b9), _0x333835 => {
+                    const _0x28db20 = _0x419155;
+                    _0x28db20(0x1f6) === _0x333835[_0x28db20(0x1a3)] && closeContextMenu();
+                }
+                ),
+                window[_0x419155(0x1b4)] = function() {
+                    const _0x137755 = _0x419155;
+                    _0x3a4ec6(_0x137755(0x269))[_0x137755(0x29e)][_0x137755(0x2a6)](_0x137755(0x2d3));
+                }
+                ;
+                let _0x3f9907 = null
+                  , _0x4d363b = 0x1e;
+                function _0x5250bf() {
+                    const _0x211f6b = _0x419155
+                      , _0x5d6ca5 = _0x3a4ec6('#banner-timer');
+                    _0x5d6ca5 && !_0x3a4ec6('#welcome-banner')[_0x211f6b(0x29e)][_0x211f6b(0x306)](_0x211f6b(0x1bf)) ? _0x5d6ca5[_0x211f6b(0x1b0)] = _0x4d363b + 'с' : _0x5d6ca5 && (_0x5d6ca5['textContent'] = '');
+                }
+                window[_0x419155(0x2f9)] = function() {
+                    const _0x207ed1 = _0x419155;
+                    _0x3a4ec6(_0x207ed1(0x2e3))[_0x207ed1(0x29e)]['add'](_0x207ed1(0x1bf)),
+                    _0x3f9907 && (clearInterval(_0x3f9907),
+                    _0x3f9907 = null),
+                    _0x3a4ec6(_0x207ed1(0x1fd))[_0x207ed1(0x1b0)] = '';
+                }
+                ,
+                window[_0x419155(0x2f3)] = function() {
+                    const _0x4364ba = _0x419155;
+                    _0x3a4ec6(_0x4364ba(0x2e3))[_0x4364ba(0x29e)]['remove'](_0x4364ba(0x1bf)),
+                    _0x4d363b = 0xf,
+                    _0x5250bf(),
+                    _0x3f9907 && clearInterval(_0x3f9907),
+                    _0x3f9907 = setInterval( () => {
+                        _0x4d363b--,
+                        _0x5250bf(),
+                        _0x4d363b <= 0x0 && (window['minimizeBanner'](),
+                        clearInterval(_0x3f9907));
+                    }
+                    , 0x3e8);
+                }
+                ,
+                window[_0x419155(0x2c0)] = function() {
+                    const _0x462630 = _0x419155;
+                    _0x3a4ec6(_0x462630(0x256))['click']();
+                }
+                ,
+                _0x3a4ec6('#avatar-input')[_0x419155(0x2b6)](_0x419155(0x24e), async _0x569081 => {
+                    const _0x3b8df0 = _0x419155
+                      , _0x4cc431 = _0x569081[_0x3b8df0(0x216)][_0x3b8df0(0x2c6)][0x0];
+                    if (_0x4cc431) {
+                        if (_0x4cc431[_0x3b8df0(0x1a7)][_0x3b8df0(0x1fe)](_0x3b8df0(0x254))) {
+                            if (_0x4cc431['size'] > 0x500000)
+                                _0x15ed82('Максимальный\x20размер\x205МБ', !0x0);
+                            else {
+                                try {
+                                    const _0x2febe2 = await async function(_0x35c30e) {
+                                        return new Promise( (_0x33ba84, _0x53363a) => {
+                                            const _0x58fe63 = _0x237e
+                                              , _0x4405fc = new FileReader();
+                                            _0x4405fc['onload'] = _0x59f8aa => {
+                                                const _0x5607dd = _0x237e
+                                                  , _0x2aca3a = new Image();
+                                                _0x2aca3a[_0x5607dd(0x2ea)] = () => {
+                                                    const _0x22e246 = _0x5607dd
+                                                      , _0x147a0d = document[_0x22e246(0x18f)](_0x22e246(0x1fc))
+                                                      , _0x36f6fd = 0x80;
+                                                    _0x147a0d['width'] = _0x36f6fd,
+                                                    _0x147a0d['height'] = _0x36f6fd;
+                                                    const _0x5e9337 = _0x147a0d[_0x22e246(0x252)]('2d')
+                                                      , _0x30ef00 = Math[_0x22e246(0x2aa)](_0x2aca3a[_0x22e246(0x230)], _0x2aca3a['height'])
+                                                      , _0x2f63b2 = (_0x2aca3a[_0x22e246(0x230)] - _0x30ef00) / 0x2
+                                                      , _0x7217fe = (_0x2aca3a[_0x22e246(0x1e3)] - _0x30ef00) / 0x2;
+                                                    _0x5e9337[_0x22e246(0x2cb)](_0x2aca3a, _0x2f63b2, _0x7217fe, _0x30ef00, _0x30ef00, 0x0, 0x0, _0x36f6fd, _0x36f6fd),
+                                                    _0x33ba84(_0x147a0d[_0x22e246(0x299)](_0x22e246(0x241), 0.7));
+                                                }
+                                                ,
+                                                _0x2aca3a[_0x5607dd(0x26e)] = _0x53363a,
+                                                _0x2aca3a['src'] = _0x59f8aa[_0x5607dd(0x216)]['result'];
+                                            }
+                                            ,
+                                            _0x4405fc['onerror'] = _0x53363a,
+                                            _0x4405fc[_0x58fe63(0x2e7)](_0x35c30e);
+                                        }
+                                        );
+                                    }(_0x4cc431);
+                                    _0xbb0903['ws']['send'](JSON[_0x3b8df0(0x19c)]({
+                                        'type': _0x3b8df0(0x250),
+                                        'avatar': _0x2febe2
+                                    }));
+                                    const _0x142daf = _0xbb0903['participants'][_0x3b8df0(0x2ae)](_0xbb0903['clientId']);
+                                    _0x142daf && (_0x142daf['avatar'] = _0x2febe2,
+                                    _0x2782d5()),
+                                    _0x15ed82(_0x3b8df0(0x258));
+                                } catch (_0x1d7d94) {
+                                    _0x15ed82('Ошибка\x20загрузки\x20аватарки', !0x0);
+                                }
+                                _0x569081[_0x3b8df0(0x216)][_0x3b8df0(0x2be)] = '';
+                            }
+                        } else
+                            _0x15ed82(_0x3b8df0(0x215), !0x0);
+                    }
+                }
+                ),
+                document[_0x419155(0x2b6)](_0x419155(0x1b9), _0x25f09b => {
+                    const _0x3259e7 = _0x419155;
+                    _0x3259e7(0x1f6) === _0x25f09b['key'] && closeImageModal();
+                }
+                ),
+                _0x419155(0x1eb) === document[_0x419155(0x190)] ? document[_0x419155(0x2b6)](_0x419155(0x1d4), _0x15622f) : _0x15622f();
+            }
+            )()));
+            function _0x237e(_0x1c57f8, _0x5c570e) {
+                const _0x2dccba = _0x2dcc();
+                return _0x237e = function(_0x237ed9, _0x58fb3b) {
+                    _0x237ed9 = _0x237ed9 - 0x18c;
+                    let _0x143fd7 = _0x2dccba[_0x237ed9];
+                    return _0x143fd7;
+                }
+                ,
+                _0x237e(_0x1c57f8, _0x5c570e);
+            }
+            function _0x2dcc() {
+                const _0x2ca39d = ['gain', 'https:', 'origin', 'scale(1.1)', 'senderName', 'lowpass', 'exitFullscreen', 'content', 'ws:', '#error-modal-text', 'enableScreenShare', 'toggle-mute', '#participant-list', 'Нет\x20доступа\x20к\x20микрофону.\x20Проверь\x20разрешения.', 'hidden', 'message', 'setRemoteDescription', '#messages-container', 'screen-share-stopped', 'isScreenSharing', '.screen-disabled-notice', 'data', 'pendingImage', 'stopPropagation', 'participant-item', 'width', 'Audio\x20processing\x20setup\x20failed:', '8CtJonD', 'has', '\x20показывает\x20экран', 'touchstart', 'participants', '#image-input', 'json', 'pointer', '\x22\x20id=\x22avatar-', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20', '7tZJgbe', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p><i\x20class=\x22fas\x20fa-eye-slash\x22></i>\x20Демка\x20от\x20<strong>', 'pointerEvents', 'webrtc-answer', '#deafen-btn', 'image/jpeg', 'streams', '<i\x20class=\x22fas\x20fa-volume-mute\x20active\x22></i>', 'onicecandidate', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22screen-control-row\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fas\x20fa-volume-up\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<input\x20type=\x22range\x22\x20class=\x22screen-volume-slider\x22\x20min=\x220\x22\x20max=\x22100\x22\x20value=\x22', '<i\x20class=\x22fas\x20fa-microphone\x22></i>', 'block', 'avatar', 'result', 'active', 'createBiquadFilter', 'connected', 'srcObject', 'change', 'click', 'update-avatar', 'video', 'getContext', 'failed', 'image/', 'play', '#avatar-input', 'image', 'Аватарка\x20обновлена!', 'playsInline', '>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', 'user-avatar-changed', '154779InuIRF', 'screen-video-fullscreen', '58tVaCOj', 'touchend', '.screen-video-fullscreen', 'push', '/x/t', '\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fas\x20fa-eye-slash\x22></i>\x20Отключить\x20демку\x0a\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20', 'participant-', 'touchmove', '<i\x20class=\x22fas\x20fa-microphone-slash\x20active\x22></i>', 'delete', 'smooth', '#error-modal', 'audioContext', 'release', 'toggle', '842580JWHAOX', 'onerror', '\x22\x20style=\x22color:\x20var(--accent);\x20font-size:\x200.65rem;\x22>', '#chat-input', 'screenSenders', 'addTrack', '.no-screen-share', '.screen-video-controls', 'enabled', '</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22message-time\x22>', '<i\x20class=\x22fas\x20fa-microphone-slash\x22></i>', 'connect', 'Изображение\x20слишком\x20большое,\x20попробуй\x20меньше', 'opacity', 'toLocaleTimeString', 'className', 'Enter', 'down', 'onopen', 'WebSocket\x20disconnected', 'Unknown', '.screen-disable-btn', 'appendChild', 'Microphone\x20obtained\x20with\x20constraints:', 'offer', 'send', 'screen-video-container', '#mute-btn', 'stop', 'roomId', 'clientY', 'getDisplayMedia', '#screen-disabled-', 'onended', 'now', 'onmessage', '349004HkpKyG', '2673ybkFjH', 'fullscreenchange', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-info\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-name\x22>', '</strong>\x20отключена</p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<button\x20class=\x22screen-enable-btn\x22\x20onclick=\x22enableScreenShare(\x27', 'preventDefault', 'always', 'screen-share-started', 'toDataURL', '\x20(ты)', '#create-room-btn', '#user-context-menu', '#nickname-screen', 'classList', 'closeContextMenu', 'addIceCandidate', 'closest', 'webrtc-ice-candidate', 'openImageModal', '2-digit', 'flex', 'remove', '#loading-percent', 'querySelector', 'overflow', 'min', 'requestFullscreen', 'parse', 'volume', 'get', 'input', 'none', 'createMediaStreamDestination', 'localStream', 'participants-update', '#volume-value', 'innerWidth', 'addEventListener', 'Демка\x20отключена\x20для\x20экономии\x20трафика', 'fullscreenElement', 'Ошибка\x20создания\x20комнаты', '#room-id-display', 'scrollHeight', 'trim', '\x22\x20data-peer=\x22', 'value', 'ontrack', 'openAvatarPicker', 'ru-RU', '\x20вышел', 'innerHTML', '#join-btn', '<div\x20class=\x22message-text\x22>', 'files', 'Ошибка\x20подключения', '/room/', '#room-link', 'href', 'drawImage', 'frequency', '</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-key\x22>', '\x27)\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fas\x20fa-eye\x22></i>\x20Включить\x20обратно\x0a\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20', 'autoplay', 'webrtc-offer', 'close', 'auto', 'show', 'webkitRequestFullscreen', 'style', '8071890iMTgZs', 'attack', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', 'Демонстрация\x20экрана\x20недоступна\x20на\x20мобильных', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22message-avatar\x22>', 'ratio', 'clipboard', 'peerConnections', 'screen-video-label', 'getTracks', 'left', 'div', 'audio', '#welcome-banner', 'onclose', 'screenVolumes', 'muted', 'readAsDataURL', 'Image\x20compression\x20failed:', 'touches', 'onload', 'knee', 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQAAAAAAAAAAaC8LMgeAAAAAAAAAAAAAAAAAAAA/+MYxAANCAKeeUAQAgBgDgAAHAAP/yf+a4f/8nEM/+IYxAQIAAJZ+AAAAP/E/8AAAAD/4hjEBAAAADSAAAAAAAA0gAAAP/jGMQEAAA0gAAAAAAAANIAAAD/4hjEBAAAADSAAAAAAAA0gAAA', 'joined', 'stream', '#home-screen', 'host', 'innerHeight', 'contextmenu', 'expandBanner', '#join-created-btn', 'test', 'history', 'createGain', 'catch', 'minimizeBanner', 'screen-video', '#screen-video-', 'getAudioTracks', 'removeTrack', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20', '</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-icons\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', 'webkitAudioContext', 'userAgent', '\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22screen-volume-value\x22>', 'Соединение\x20потеряно', 'forEach', 'user-deafen-changed', 'contains', '.screen-video-container', 'threshold', 'connectionState', 'Audio\x20processing\x20setup\x20skipped', 'createElement', 'readyState', '#context-avatar', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-avatar\x20', 'src', 'playsinline', 'userVolumes', 'length', 'screen-active', '#screen-share-content', 'toggleScreenPanel', 'POST', '58070FMIDsN', 'stringify', 'body', 'error', 'clientX', 'OPEN', '#screen-btn', 'then', 'key', 'isArray', '#my-key', 'user-left', 'type', 'localDescription', 'transform', 'log', '<div\x20class=\x22avatar-edit-hint\x22><i\x20class=\x22fas\x20fa-camera\x22></i></div>', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', 'wss:', '5082900ikajWK', '#screen-share-panel', 'textContent', '#context-menu-overlay', 'writeText', 'join-room', 'closeErrorModal', 'setLocalDescription', 'setAttribute', 'Комната\x20создана!', '#audio-', 'keydown', 'chat-message', 'screen-container-', 'clientId', '#app-screen', 'stun:stun.l.google.com:19302', 'minimized', 'Файл\x20слишком\x20большой\x20(макс.\x2010MB)', 'timestamp', 'isMuted', 'toUpperCase', 'userKey', 'Комната\x20не\x20найдена', 'copyLink', 'pushState', 'audioNodes', '\x22\x20style=\x22', 'closeImageModal', 'kind', 'track', 'user-mute-changed', 'Audio\x20autoplay\x20blocked,\x20waiting\x20for\x20user\x20interaction', 'nickname', 'Ошибка\x20отправки\x20сообщения', 'screen-video-controls', 'location', 'Send\x20message\x20error:', 'DOMContentLoaded', 'Демка\x20включена', 'screen-disabled-notice', '#loading-progress', 'clear', 'screenStream', 'display', '35putKAc', 'candidate', 'shiftKey', 'screenSharers', 'webkit-playsinline', 'createAnswer', 'Received\x20video\x20track\x20from:', 'createDynamicsCompressor', 'height', 'answer', '#toggle-screen-panel', 'set', 'getVideoTracks', '.sidebar', '#participants-btn', 'handleAnswer\x20error:', 'loading', 'add', 'peer', 'onclick=\x22openAvatarPicker()\x22', 'disabledScreens', 'querySelectorAll', 'Video\x20autoplay\x20blocked:', 'mediaDevices', 'messages', 'audio-', '</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22message-content\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22message-header\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20class=\x22message-author\x22>', 'Escape', '<i\x20class=\x22fas\x20fa-volume-mute\x22></i>', '#my-name', '#room-participant-count', 'screenStreams', '#loading-screen', 'canvas', '#banner-timer', 'startsWith', '6548868lYDtrV', 'dataset', 'createOffer', 'screen-disabled-', 'user', 'disabled', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22participant-status\x22></div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', 'toggle-deafen', 'scrollTop', '#screen-container-', '\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20class=\x22no-screen-share\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<i\x20class=\x22fas\x20fa-desktop\x22></i>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span>Никто\x20не\x20показывает\x20экран</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20', '#notification', 'Ссылка\x20скопирована!', '#image-preview', 'background-image:\x20url(', 'currentContextUser', '#leave-btn', '<i\x20class=\x22fas\x20fa-desktop\x20screen\x22></i>', 'stun:stun2.l.google.com:19302', '<i\x20class=\x22fas\x20fa-volume-', 'isDeafened', 'senderId', 'Выберите\x20изображение', 'target'];
+                _0x2dcc = function() {
+                    return _0x2ca39d;
+                }
+                ;
+                return _0x2dcc();
+            }
+        </script>
+    </body>
+</html>
