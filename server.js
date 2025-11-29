@@ -17,14 +17,19 @@ const RATE_LIMIT_MAX_REQUESTS = 3;
 const MAX_ROOMS = 5;
 const EMPTY_ROOM_TIMEOUT = 10 * 60 * 1000;
 
-const GLOBAL_ROOM_LIMIT_WINDOW = 3600000;
-const GLOBAL_MAX_ROOMS_PER_HOUR = 10;
-let globalRoomCreations = [];
-
 const csrfTokens = new Map();
 const CSRF_TOKEN_LIFETIME = 300000;
 
 const suspiciousIPs = new Set();
+
+const ERR = {
+    E001: 'd107fc57-3a5d-49c6-95e4-b5648000dc17',
+    E002: 'a3f8b2c1-7e4d-4a9f-8c6b-2d1e5f3a7b9c',
+    E003: '9c8b7a6f-5e4d-3c2b-1a0f-e9d8c7b6a5f4',
+    E004: 'f4e3d2c1-b0a9-8f7e-6d5c-4b3a2f1e0d9c',
+    E005: '7b6a5f4e-3d2c-1b0a-9f8e-7d6c5b4a3f2e',
+    E006: '2e1d0c9b-8a7f-6e5d-4c3b-2a1f0e9d8c7b'
+};
 
 function getClientIP(req) {
     return req.headers['cf-connecting-ip'] || 
@@ -102,25 +107,22 @@ app.get('/room/:roomId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/api/csrf-token', (req, res) => {
+app.get('/x/t', (req, res) => {
     const token = uuidv4();
     const ip = getClientIP(req);
     csrfTokens.set(token, { ip, createdAt: Date.now() });
     
     setTimeout(() => csrfTokens.delete(token), CSRF_TOKEN_LIFETIME);
     
-    res.json({ token });
+    res.json({ d: token });
 });
 
-app.post('/api/create-room', (req, res) => {
+app.post('/x/c', (req, res) => {
     const ip = getClientIP(req);
-    const csrfToken = req.headers['x-csrf-token'];
+    const csrfToken = req.headers['x-t'];
     
     if (!csrfToken || !csrfTokens.has(csrfToken)) {
-        return res.status(403).json({ 
-            error: 'Invalid token', 
-            message: 'Недействительный токен. Обновите страницу.' 
-        });
+        return res.status(403).json({ c: ERR.E001 });
     }
     
     const tokenData = csrfTokens.get(csrfToken);
@@ -129,53 +131,26 @@ app.post('/api/create-room', (req, res) => {
     const tokenAge = Date.now() - tokenData.createdAt;
     
     if (tokenAge > CSRF_TOKEN_LIFETIME) {
-        return res.status(403).json({ 
-            error: 'Token expired', 
-            message: 'Токен истёк. Обновите страницу.' 
-        });
+        return res.status(403).json({ c: ERR.E002 });
     }
     
     if (tokenAge < 1000) {
         suspiciousIPs.add(ip);
-        return res.status(403).json({ 
-            error: 'Too fast', 
-            message: 'Слишком быстрый запрос. Попробуйте снова.' 
-        });
+        return res.status(403).json({ c: ERR.E003 });
     }
     
     if (!isValidRequest(req)) {
         suspiciousIPs.add(ip);
-        return res.status(403).json({ 
-            error: 'Forbidden', 
-            message: 'Недопустимый запрос' 
-        });
+        return res.status(403).json({ c: ERR.E004 });
     }
     
     if (!checkRateLimit(ip)) {
-        return res.status(429).json({ 
-            error: 'Too many requests', 
-            message: 'Превышен лимит запросов. Попробуйте позже.' 
-        });
+        return res.status(429).json({ c: ERR.E005 });
     }
     
     if (rooms.size >= MAX_ROOMS) {
-        return res.status(503).json({ 
-            error: 'Room limit reached', 
-            message: `Достигнут лимит комнат (${MAX_ROOMS}). Попробуйте позже.` 
-        });
+        return res.status(503).json({ c: ERR.E006, limit: true });
     }
-    
-    const now = Date.now();
-    globalRoomCreations = globalRoomCreations.filter(t => now - t < GLOBAL_ROOM_LIMIT_WINDOW);
-    
-    if (globalRoomCreations.length >= GLOBAL_MAX_ROOMS_PER_HOUR) {
-        return res.status(429).json({ 
-            error: 'Global limit reached', 
-            message: 'Слишком много комнат создано за последний час. Попробуйте позже.' 
-        });
-    }
-    
-    globalRoomCreations.push(now);
     
     const roomId = uuidv4().slice(0, 8);
     const adminKey = uuidv4().slice(0, 12);
@@ -189,17 +164,17 @@ app.post('/api/create-room', (req, res) => {
         messages: []
     });
     
-    res.json({ roomId, adminKey, link: `/room/${roomId}` });
+    res.json({ r: roomId, k: adminKey, l: `/room/${roomId}` });
 });
 
-app.get('/api/room/:roomId', (req, res) => {
+app.get('/x/r/:roomId', (req, res) => {
     const room = rooms.get(req.params.roomId);
     if (!room) {
-        return res.status(404).json({ error: 'Room not found' });
+        return res.status(404).json({ c: 0 });
     }
     res.json({ 
-        exists: true, 
-        participantCount: room.participants.size 
+        e: 1, 
+        p: room.participants.size 
     });
 });
 
@@ -292,7 +267,8 @@ function handleMessage(clientId, message) {
                 joinedAt: Date.now(),
                 isMuted: false,
                 isDeafened: false,
-                isScreenSharing: false
+                isScreenSharing: false,
+                avatar: null
             });
             
             room.lastEmptyTime = null;
@@ -389,6 +365,22 @@ function handleMessage(clientId, message) {
                     type: 'user-mute-changed',
                     clientId,
                     isMuted: message.isMuted
+                });
+            }
+            break;
+        }
+        
+        case 'update-avatar': {
+            const room = rooms.get(client.roomId);
+            if (!room) return;
+            
+            const participant = room.participants.get(clientId);
+            if (participant) {
+                participant.avatar = message.avatar;
+                broadcast(client.roomId, {
+                    type: 'user-avatar-changed',
+                    clientId,
+                    avatar: message.avatar
                 });
             }
             break;
