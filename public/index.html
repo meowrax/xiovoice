@@ -2118,6 +2118,11 @@ $('#create-room-btn').addEventListener('click', async () => {
         const res = await fetch('/api/create-room', { method: 'POST' });
         const data = await res.json();
         
+        if (!res.ok) {
+            showNotification(data.message || 'Ошибка создания комнаты', true);
+            return;
+        }
+        
         state.roomId = data.roomId;
         const link = window.location.origin + data.link;
         $('#room-link').textContent = link;
