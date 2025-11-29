@@ -2255,7 +2255,7 @@ html, body {
         <div class="context-menu-name" id="context-name"></div>
     </div>
     <div class="context-menu-item">
-        <label><i class="fas fa-volume-up"></i> Громкость</label>
+        <label for="user-volume-slider"><i class="fas fa-volume-up"></i> Громкость</label>
         <input type="range" class="volume-slider" id="user-volume-slider" min="0" max="200" value="100">
         <span class="volume-value" id="volume-value">100%</span>
     </div>
@@ -2528,12 +2528,6 @@ async function joinRoom() {
         return;
     }
     
-    if (state.localStream) {
-        state.localStream.getAudioTracks().forEach(track => {
-            track.enabled = false;
-        });
-    }
-    
     connectWebSocket();
 }
 
@@ -2647,6 +2641,12 @@ function handleWSMessage(msg) {
                     createPeerConnection(p.id, true);
                 }
             });
+            
+            if (state.localStream && state.isMuted) {
+                state.localStream.getAudioTracks().forEach(track => {
+                    track.enabled = false;
+                });
+            }
             
             setTimeout(() => showWelcomeBanner(), 500);
             break;
