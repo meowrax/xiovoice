@@ -2612,7 +2612,56 @@ function connectWebSocket() {
     
     state.ws.onclose = () => {
         console.log('WebSocket disconnected');
-        showNotification('Соединение потеряно', true);
+        
+        if (state.roomId && state.nickname) {
+            let reconnectAttempts = 0;
+            const maxAttempts = 10;
+            
+            const reconnect = () => {
+                if (reconnectAttempts >= maxAttempts) {
+                    showNotification('Не удалось переподключиться. Перезагрузите страницу.', true);
+                    return;
+                }
+                
+                reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+                
+                setTimeout(() => {
+                    console.log(`Reconnecting attempt ${reconnectAttempts}...`);
+                    showNotification(`Переподключение... (${reconnectAttempts}/${maxAttempts})`, false);
+                    
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    state.ws = new WebSocket(protocol + '//' + window.location.host);
+                    
+                    state.ws.onopen = () => {
+                        console.log('WebSocket reconnected');
+                        reconnectAttempts = 0;
+                        state.ws.send(JSON.stringify({
+                            type: 'join-room',
+                            roomId: state.roomId,
+                            nickname: state.nickname
+                        }));
+                    };
+                    
+                    state.ws.onmessage = e => {
+                        const msg = JSON.parse(e.data);
+                        handleWSMessage(msg);
+                    };
+                    
+                    state.ws.onclose = () => {
+                        reconnect();
+                    };
+                    
+                    state.ws.onerror = () => {
+                        reconnect();
+                    };
+                }, delay);
+            };
+            
+            reconnect();
+        } else {
+            showNotification('Соединение потеряно', true);
+        }
     };
 }
 
@@ -3105,6 +3154,19 @@ async function startScreenShare() {
             
             state.screenSenders.set(peerId, senders);
             
+            if (state.localStream) {
+                const existingAudioSenders = pc.getSenders().filter(sender => 
+                    sender.track && sender.track.kind === 'audio' && 
+                    state.localStream.getAudioTracks().includes(sender.track)
+                );
+                
+                if (existingAudioSenders.length === 0) {
+                    state.localStream.getAudioTracks().forEach(track => {
+                        pc.addTrack(track, state.localStream);
+                    });
+                }
+            }
+            
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             state.ws.send(JSON.stringify({
@@ -3121,14 +3183,14 @@ async function startScreenShare() {
     }
 }
 
-function stopScreenShare() {
+async function stopScreenShare() {
     if (state.screenStream) {
         state.screenStream.getTracks().forEach(track => track.stop());
         state.screenStream = null;
     }
     
     if (state.screenSenders) {
-        state.screenSenders.forEach((senders, peerId) => {
+        for (const [peerId, senders] of state.screenSenders) {
             const pc = state.peerConnections.get(peerId);
             if (pc && Array.isArray(senders)) {
                 senders.forEach(sender => {
@@ -3136,8 +3198,33 @@ function stopScreenShare() {
                         pc.removeTrack(sender);
                     } catch (e) {}
                 });
+                
+                if (state.localStream) {
+                    const existingAudioSenders = pc.getSenders().filter(sender => 
+                        sender.track && sender.track.kind === 'audio' && 
+                        state.localStream.getAudioTracks().includes(sender.track)
+                    );
+                    
+                    if (existingAudioSenders.length === 0) {
+                        state.localStream.getAudioTracks().forEach(track => {
+                            pc.addTrack(track, state.localStream);
+                        });
+                    }
+                }
+                
+                try {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    state.ws.send(JSON.stringify({
+                        type: 'webrtc-offer',
+                        targetId: peerId,
+                        offer: pc.localDescription
+                    }));
+                } catch (e) {
+                    console.error('Error renegotiating after screen share stop:', e);
+                }
             }
-        });
+        }
         state.screenSenders.clear();
     }
     
