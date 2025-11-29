@@ -59,9 +59,7 @@ html, body {
 ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 
 .noise-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: var(--noise-bg);
-    opacity: 0.03; pointer-events: none; z-index: 9999;
+    display: none;
 }
 
 #loading-screen {
@@ -2257,16 +2255,6 @@ function handleWSMessage(msg) {
                     createPeerConnection(p.id, true);
                 }
             });
-            
-            setTimeout(() => {
-                msg.participants.forEach(p => {
-                    if (p.id !== state.clientId && p.isScreenSharing) {
-                        state.screenSharers.set(p.id, { nickname: p.nickname });
-                        sendMessage({ type: 'request-screen', targetId: p.id });
-                    }
-                });
-                updateScreenSharePanel();
-            }, 1500);
             break;
             
         case 'user-joined':
@@ -2313,78 +2301,11 @@ function handleWSMessage(msg) {
             break;
             
         case 'screen-share-started':
-            state.screenSharers.set(msg.clientId, { nickname: msg.nickname });
             showNotification(`${msg.nickname} показывает экран`);
             break;
             
         case 'screen-share-stopped':
             removeScreenVideo(msg.clientId);
-            break;
-            
-        case 'screen-requested':
-            if (state.isScreenSharing && state.screenStream) {
-                const requesterId = msg.requesterId;
-                const pc = state.peerConnections.get(requesterId);
-                if (pc) {
-                    const addScreenTracks = async () => {
-                        const senders = [];
-                        state.screenStream.getTracks().forEach(track => {
-                            const existingSender = pc.getSenders().find(s => s.track && s.track.kind === track.kind && s.track.id === track.id);
-                            if (!existingSender) {
-                                senders.push(pc.addTrack(track, state.screenStream));
-                            }
-                        });
-                        if (!state.screenSenders) state.screenSenders = new Map();
-                        if (senders.length > 0) {
-                            state.screenSenders.set(requesterId, senders);
-                            
-                            if (pc.signalingState === 'stable') {
-                                try {
-                                    const offer = await pc.createOffer();
-                                    await pc.setLocalDescription(offer);
-                                    sendMessage({
-                                        type: 'webrtc-offer',
-                                        targetId: requesterId,
-                                        offer: pc.localDescription
-                                    });
-                                } catch (e) {
-                                    console.error('Error creating offer for screen share:', e);
-                                }
-                            }
-                        }
-                    };
-                    
-                    if (pc.signalingState === 'stable' || pc.connectionState === 'connected') {
-                        addScreenTracks();
-                    } else {
-                        pc.addEventListener('signalingstatechange', () => {
-                            if (pc.signalingState === 'stable') {
-                                addScreenTracks();
-                            }
-                        }, { once: true });
-                    }
-                } else {
-                    setTimeout(() => {
-                        const pcRetry = state.peerConnections.get(requesterId);
-                        if (pcRetry && state.isScreenSharing && state.screenStream) {
-                            state.screenStream.getTracks().forEach(track => {
-                                pcRetry.addTrack(track, state.screenStream);
-                            });
-                            if (pcRetry.signalingState === 'stable') {
-                                pcRetry.createOffer().then(offer => {
-                                    return pcRetry.setLocalDescription(offer);
-                                }).then(() => {
-                                    sendMessage({
-                                        type: 'webrtc-offer',
-                                        targetId: requesterId,
-                                        offer: pcRetry.localDescription
-                                    });
-                                });
-                            }
-                        }
-                    }, 2000);
-                }
-            }
             break;
     }
 }
@@ -2479,6 +2400,7 @@ function updateParticipantList() {
             });
             item.addEventListener('touchend', () => clearTimeout(pressTimer));
             item.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
         }
         
         list.appendChild(item);
@@ -2511,15 +2433,6 @@ async function createPeerConnection(peerId, isInitiator) {
         state.localStream.getTracks().forEach(track => {
             pc.addTrack(track, state.localStream);
         });
-    }
-    
-    if (state.isScreenSharing && state.screenStream) {
-        const senders = [];
-        state.screenStream.getTracks().forEach(track => {
-            senders.push(pc.addTrack(track, state.screenStream));
-        });
-        if (!state.screenSenders) state.screenSenders = new Map();
-        state.screenSenders.set(peerId, senders);
     }
     
     pc.ontrack = e => {
@@ -2611,23 +2524,6 @@ async function handleOffer(senderId, offer) {
     if (!pc) {
         await createPeerConnection(senderId, false);
         pc = state.peerConnections.get(senderId);
-    }
-    
-    if (state.isScreenSharing && state.screenStream && pc) {
-        const hasScreenTracks = Array.from(pc.getSenders()).some(sender => 
-            sender.track && state.screenStream.getTracks().some(t => t.id === sender.track.id)
-        );
-        
-        if (!hasScreenTracks) {
-            state.screenStream.getTracks().forEach(track => {
-                pc.addTrack(track, state.screenStream);
-            });
-            if (!state.screenSenders) state.screenSenders = new Map();
-            const senders = Array.from(pc.getSenders()).filter(s => 
-                s.track && state.screenStream.getTracks().some(t => t.id === s.track.id)
-            );
-            state.screenSenders.set(senderId, senders);
-        }
     }
     
     try {
@@ -2828,16 +2724,6 @@ function removeScreenVideo(peerId) {
                 <span>Никто не показывает экран</span>
             </div>
         `;
-    }
-}
-
-function updateScreenSharePanel() {
-    const content = $('#screen-share-content');
-    if (state.screenSharers.size > 0 && !content.querySelector('.screen-video-container') && !content.querySelector('.screen-disabled-notice')) {
-        const noShare = content.querySelector('.no-screen-share');
-        if (noShare) {
-            noShare.querySelector('span').textContent = 'Загрузка демонстраций...';
-        }
     }
 }
 
